@@ -642,7 +642,12 @@ export default async function RequirementDetailPage({
               <div key={o.id} className="p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium">PO {o.po_number}</span>
+                    <Link
+                      href={`/orders/${o.id}`}
+                      className="text-sm font-medium hover:text-primary"
+                    >
+                      PO {o.po_number}
+                    </Link>
                     <Badge
                       value={o.status}
                       map={{

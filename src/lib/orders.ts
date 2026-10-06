@@ -168,3 +168,68 @@ export async function addInvoice(
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
+
+export type OrderDetail = {
+  id: string;
+  requirement_id: string;
+  po_number: string;
+  po_date: string | null;
+  delivery_deadline: string | null;
+  oem_name: string | null;
+  supplier_po: string | null;
+  pdi_required: boolean;
+  status: string;
+  notes: string | null;
+  tender_ref: string;
+  customer: string;
+  ordered_qty: number;
+};
+
+export type OrderDetailResult =
+  | { ok: true; data: OrderDetail }
+  | { ok: false; error: string };
+
+export async function getOrder(id: string): Promise<OrderDetailResult> {
+  try {
+    const { data, error } = await supabaseAdmin()
+      .from("orders")
+      .select(
+        "id,requirement_id,po_number,po_date,delivery_deadline,oem_id,supplier_po,pdi_required,status,notes,oems(name),requirements(tender_ref,customer),quotes(quote_lines(quantity))",
+      )
+      .eq("id", id)
+      .single();
+
+    if (error || !data) {
+      return { ok: false, error: error?.message ?? "Order not found." };
+    }
+
+    const oem = Array.isArray(data.oems) ? data.oems[0] : data.oems;
+    const req = Array.isArray(data.requirements)
+      ? data.requirements[0]
+      : data.requirements;
+    const quote = Array.isArray(data.quotes) ? data.quotes[0] : data.quotes;
+    const ordered_qty = ((quote?.quote_lines ?? []) as { quantity: number | null }[])
+      .reduce((s, l) => s + (Number(l.quantity) || 0), 0);
+
+    return {
+      ok: true,
+      data: {
+        id: data.id,
+        requirement_id: data.requirement_id,
+        po_number: data.po_number,
+        po_date: data.po_date,
+        delivery_deadline: data.delivery_deadline,
+        oem_name: oem?.name ?? null,
+        supplier_po: data.supplier_po,
+        pdi_required: data.pdi_required,
+        status: data.status,
+        notes: data.notes,
+        tender_ref: req?.tender_ref ?? "—",
+        customer: req?.customer ?? "—",
+        ordered_qty,
+      },
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}

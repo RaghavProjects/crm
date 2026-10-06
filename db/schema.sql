@@ -261,6 +261,50 @@ create table if not exists order_invoices (
 create index if not exists orders_requirement_id_idx on orders (requirement_id);
 create index if not exists order_invoices_order_id_idx on order_invoices (order_id);
 
+-- Fulfilment, PDI and delivery (Step 8) -------------------------------------
+create table if not exists order_fulfilment_steps (
+  id            uuid primary key default gen_random_uuid(),
+  order_id      uuid not null references orders (id) on delete cascade,
+  step          text not null,           -- oem_po, production_started, ...
+  owner         text,
+  expected_date date,
+  completed_on  date,
+  notes         text,
+  sort_order    int not null default 0,
+  created_at    timestamptz not null default now(),
+  unique (order_id, step)
+);
+
+-- PDI is quantified: offered / cleared / rejected, with a result.
+create table if not exists order_pdi (
+  id           uuid primary key default gen_random_uuid(),
+  order_id     uuid not null references orders (id) on delete cascade,
+  inspected_on date,
+  qty_offered  numeric check (qty_offered >= 0),
+  qty_cleared  numeric check (qty_cleared >= 0),
+  qty_rejected numeric check (qty_rejected >= 0),
+  result       text not null default 'pending',  -- pending | passed | failed | held
+  remarks      text,
+  created_at   timestamptz not null default now()
+);
+
+-- Partial deliveries: many rows per order, outstanding balance is derived.
+create table if not exists order_deliveries (
+  id            uuid primary key default gen_random_uuid(),
+  order_id      uuid not null references orders (id) on delete cascade,
+  delivered_on  date,
+  qty_delivered numeric not null check (qty_delivered > 0),
+  status        text not null default 'delivered',  -- in_transit | delivered
+  notes         text,
+  created_at    timestamptz not null default now()
+);
+
+create index if not exists order_fulfilment_steps_order_id_idx
+  on order_fulfilment_steps (order_id);
+create index if not exists order_pdi_order_id_idx on order_pdi (order_id);
+create index if not exists order_deliveries_order_id_idx
+  on order_deliveries (order_id);
+
 -- Row Level Security: authenticated users may work; anon gets nothing.
 -- The app's server side uses the secret key, which bypasses RLS; this protects
 -- the publishable key if it is ever used from a browser.
@@ -270,7 +314,8 @@ begin
   for t in select unnest(array[
     'requirements','requirement_lines','oems','requirement_oems',
     'line_coverage','profiles','audit_events','requirement_status',
-    'quotes','quote_lines','orders','order_invoices'
+    'quotes','quote_lines','orders','order_invoices',
+    'order_fulfilment_steps','order_pdi','order_deliveries'
   ])
   loop
     execute format('alter table %I enable row level security', t);
