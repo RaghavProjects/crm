@@ -10,6 +10,7 @@ import { listQuotes, getPastBids } from "@/lib/quotes";
 import { listOrders } from "@/lib/orders";
 import { listOemOptions } from "@/lib/oems";
 import { QuoteForm } from "./QuoteForm";
+import { Lifecycle } from "@/components/ui";
 import {
   shortlistOemAction,
   logResponseAction,
@@ -100,6 +101,12 @@ export default async function RequirementDetailPage({
   const orders = await listOrders(id);
   const keyword = r.lines[0]?.part_description?.split(/\s+/)[0] ?? null;
   const pastBids = await getPastBids(id, keyword);
+  const stage =
+    orders.ok && orders.rows.length > 0
+      ? 2
+      : quotes.ok && quotes.rows.length > 0
+        ? 1
+        : 0;
   const approvedQuotes = quotes.ok
     ? quotes.rows.filter((q) => q.status === "approved")
     : [];
@@ -125,11 +132,16 @@ export default async function RequirementDetailPage({
 
   return (
     <div className="mx-auto max-w-[1100px] space-y-6">
-      <div>
-        <Link href="/" className="text-xs text-muted hover:text-ink">
-          ← Requirements
+      <div className="text-xs text-muted">
+        <Link href="/" className="hover:text-ink">
+          Requirements
         </Link>
-        <div className="mt-1 flex flex-wrap items-center gap-3">
+        <span className="mx-1.5">/</span>
+        <span className="text-ink">{r.tender_ref}</span>
+      </div>
+
+      <div>
+        <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-[26px] font-semibold tracking-tight">
             {r.tender_ref}
           </h1>
@@ -144,6 +156,9 @@ export default async function RequirementDetailPage({
           Submission deadline:{" "}
           <span className="tabular-nums">{fmt(r.submission_deadline)}</span>
         </p>
+        <div className="mt-3">
+          <Lifecycle stage={stage} />
+        </div>
 
         <form action={setStatusAction} className="mt-3 flex flex-wrap items-end gap-2">
           <input type="hidden" name="requirement_id" value={r.id} />
