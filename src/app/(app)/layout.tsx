@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { getSessionUser } from "@/lib/supabase/server";
 import { SidebarNav } from "@/components/SidebarNav";
 import { TopBar } from "@/components/TopBar";
+import { GuestGuard } from "@/components/GuestGuard";
 
 export default async function AppLayout({
   children,
@@ -12,6 +13,7 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-dvh">
+      <GuestGuard isGuest={!user} />
       <aside className="hidden w-[232px] shrink-0 flex-col bg-sidebar md:flex">
         <div className="flex h-14 items-center gap-2.5 border-b border-white/10 px-4">
           <span className="h-4 w-1 shrink-0 rounded-full bg-accent" />

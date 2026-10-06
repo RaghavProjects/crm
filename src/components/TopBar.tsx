@@ -108,7 +108,7 @@ export function TopBar({ email }: { email: string | null }) {
             </summary>
             <div className={menu}>
               {CREATE_ITEMS.map((c) => (
-                <Link key={c.label} href={c.href} className={menuItem}>
+                <Link key={c.label} href={c.href} className={menuItem} data-guest-block>
                   {c.label}
                 </Link>
               ))}

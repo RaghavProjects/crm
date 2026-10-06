@@ -351,6 +351,7 @@ export default async function DashboardPage() {
               <Link
                 key={a.label}
                 href={a.href}
+                data-guest-block
                 className="rounded-control border border-border px-3 py-1.5 text-sm font-medium hover:bg-page"
               >
                 {a.label}
