@@ -1,8 +1,14 @@
 import Link from "next/link";
 import { getRequirement } from "@/lib/requirements";
 import { listSourcing } from "@/lib/sourcing";
+import { listCoverage } from "@/lib/coverage";
 import { listOemOptions } from "@/lib/oems";
-import { shortlistOemAction, logResponseAction } from "./actions";
+import {
+  shortlistOemAction,
+  logResponseAction,
+  addCoverageAction,
+  deleteCoverageAction,
+} from "./actions";
 
 const input =
   "w-full rounded-control border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-primary";
@@ -47,6 +53,10 @@ function fmt(d: string | null) {
   }).format(new Date(`${d}T00:00:00Z`));
 }
 
+function num(n: number | null) {
+  return n == null ? "—" : new Intl.NumberFormat("en-IN").format(n);
+}
+
 export default async function RequirementDetailPage({
   params,
   searchParams,
@@ -73,7 +83,27 @@ export default async function RequirementDetailPage({
 
   const r = res.data;
   const sourcing = await listSourcing(id);
+  const coverage = await listCoverage(id);
   const oemOptions = await listOemOptions();
+
+  // Per-line firm / availability totals, from the coverage records.
+  const byLine = new Map<string, { firm: number; avail: number }>();
+  for (const c of coverage.rows) {
+    const cur = byLine.get(c.line_id) ?? { firm: 0, avail: 0 };
+    if (c.kind === "firm") cur.firm += c.quantity;
+    else cur.avail += c.quantity;
+    byLine.set(c.line_id, cur);
+  }
+
+  const required = r.lines.reduce((s, l) => s + (l.quantity ?? 0), 0);
+  const firm = coverage.rows
+    .filter((c) => c.kind === "firm")
+    .reduce((s, c) => s + c.quantity, 0);
+  const avail = coverage.rows
+    .filter((c) => c.kind === "availability")
+    .reduce((s, c) => s + c.quantity, 0);
+  const uncovered = Math.max(0, required - firm);
+  const covered = required > 0 && uncovered === 0 && firm > 0;
 
   return (
     <div className="mx-auto max-w-[1100px] space-y-6">
@@ -93,7 +123,8 @@ export default async function RequirementDetailPage({
           {r.source ? ` · ${r.source}` : ""}
         </p>
         <p className="mt-1 text-sm text-muted">
-          Submission deadline: <span className="tabular-nums">{fmt(r.submission_deadline)}</span>
+          Submission deadline:{" "}
+          <span className="tabular-nums">{fmt(r.submission_deadline)}</span>
         </p>
       </div>
 
@@ -122,23 +153,229 @@ export default async function RequirementDetailPage({
                 <tr>
                   <th className="px-4 py-3 font-medium">Part description</th>
                   <th className="px-4 py-3 font-medium">Client part no.</th>
-                  <th className="px-4 py-3 font-medium">OEM part no.</th>
-                  <th className="px-4 py-3 text-right font-medium">Qty</th>
+                  <th className="px-4 py-3 text-right font-medium">Required</th>
+                  <th className="px-4 py-3 text-right font-medium">Firm covered</th>
+                  <th className="px-4 py-3 text-right font-medium">Uncovered</th>
                 </tr>
               </thead>
               <tbody>
-                {r.lines.map((l) => (
-                  <tr key={l.id} className="border-t border-border">
-                    <td className="px-4 py-3">{l.part_description}</td>
-                    <td className="px-4 py-3 text-muted">{l.client_part_no ?? "—"}</td>
-                    <td className="px-4 py-3 text-muted">{l.oem_part_no ?? "—"}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">
-                      {l.quantity ?? "—"} {l.unit ?? ""}
-                    </td>
-                  </tr>
-                ))}
+                {r.lines.map((l) => {
+                  const cov = byLine.get(l.id) ?? { firm: 0, avail: 0 };
+                  const u = Math.max(0, (l.quantity ?? 0) - cov.firm);
+                  return (
+                    <tr key={l.id} className="border-t border-border">
+                      <td className="px-4 py-3">{l.part_description}</td>
+                      <td className="px-4 py-3 text-muted">
+                        {l.client_part_no ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {l.quantity ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {cov.firm}
+                      </td>
+                      <td
+                        className={`px-4 py-3 text-right tabular-nums ${
+                          u > 0 ? "font-medium text-danger" : "text-[#15803d]"
+                        }`}
+                      >
+                        {u}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-card border border-border bg-surface">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <span className="text-sm font-semibold">Quantity coverage</span>
+          <span className="text-xs text-muted">
+            Per-order capacity (Q1) · firm commitments count, availability does not
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 border-b border-border p-4 lg:grid-cols-4">
+          {[
+            { label: "Required", value: num(required) },
+            { label: "Firm covered", value: num(firm) },
+            {
+              label: "Uncovered",
+              value: num(uncovered),
+              danger: true,
+            },
+            { label: "Availability (indicative)", value: num(avail) },
+          ].map((t) => (
+            <div key={t.label} className="rounded-card border border-border p-3">
+              <div className="text-xs text-muted">{t.label}</div>
+              <div
+                className={`mt-1 text-xl font-semibold ${
+                  t.danger && uncovered > 0 ? "text-danger" : "text-ink"
+                }`}
+              >
+                {t.value}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="border-b border-border px-4 py-2 text-sm">
+          {covered ? (
+            <span className="font-medium text-[#15803d]">
+              Fully covered by firm commitments.
+            </span>
+          ) : required === 0 ? (
+            <span className="text-muted">Add line items with quantities to cover.</span>
+          ) : (
+            <span className="font-medium text-danger">
+              Not fully covered — {num(uncovered)} still uncovered.
+            </span>
+          )}
+        </div>
+
+        {oemOptions.length === 0 || r.lines.length === 0 ? (
+          <p className="px-4 py-4 text-sm text-muted">
+            {r.lines.length === 0
+              ? "Add line items to the requirement first."
+              : "Add an OEM before recording commitments."}
+          </p>
+        ) : (
+          <form
+            action={addCoverageAction}
+            className="grid gap-3 border-b border-border p-4 sm:grid-cols-6"
+          >
+            <input type="hidden" name="requirement_id" value={r.id} />
+            <div className="sm:col-span-2">
+              <label className={label} htmlFor="line_id">
+                Line item
+              </label>
+              <select
+                id="line_id"
+                name="line_id"
+                required
+                defaultValue=""
+                className={input}
+              >
+                <option value="" disabled>
+                  Select line…
+                </option>
+                {r.lines.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.part_description}
+                    {l.quantity != null ? ` (req ${l.quantity})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={label} htmlFor="oem_id">
+                OEM
+              </label>
+              <select
+                id="oem_id"
+                name="oem_id"
+                required
+                defaultValue=""
+                className={input}
+              >
+                <option value="" disabled>
+                  Select…
+                </option>
+                {oemOptions.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={label} htmlFor="kind">
+                Kind
+              </label>
+              <select id="kind" name="kind" className={input} defaultValue="firm">
+                <option value="firm">Firm commitment</option>
+                <option value="availability">Availability</option>
+              </select>
+            </div>
+            <div>
+              <label className={label} htmlFor="quantity">
+                Quantity
+              </label>
+              <input
+                id="quantity"
+                name="quantity"
+                inputMode="decimal"
+                required
+                className={input}
+              />
+            </div>
+            <div className="flex items-end">
+              <button
+                type="submit"
+                className="w-full rounded-control bg-primary px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+              >
+                Add
+              </button>
+            </div>
+          </form>
+        )}
+
+        {!coverage.ok && (
+          <p className="px-4 py-4 text-sm text-[#b91c1c]">
+            Could not load coverage: {coverage.error}
+          </p>
+        )}
+
+        {coverage.ok && coverage.rows.length === 0 && (
+          <p className="px-4 py-6 text-sm text-muted">
+            No commitments recorded yet.
+          </p>
+        )}
+
+        {coverage.rows.length > 0 && (
+          <div className="divide-y divide-border">
+            {coverage.rows.map((c) => {
+              const line = r.lines.find((l) => l.id === c.line_id);
+              return (
+                <div
+                  key={c.id}
+                  className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm"
+                >
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="font-medium">{c.oem_name}</span>
+                    <Badge
+                      value={c.kind}
+                      map={{
+                        firm: "bg-success/15 text-[#15803d]",
+                        availability: "bg-warning/15 text-[#b45309]",
+                      }}
+                    />
+                    <span className="text-muted">
+                      {line?.part_description ?? "—"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="tabular-nums">
+                      {num(c.quantity)}
+                      {c.delivery_date ? ` · by ${fmt(c.delivery_date)}` : ""}
+                    </span>
+                    <form action={deleteCoverageAction}>
+                      <input type="hidden" name="requirement_id" value={r.id} />
+                      <input type="hidden" name="coverage_id" value={c.id} />
+                      <button
+                        type="submit"
+                        className="text-xs font-medium text-danger hover:underline"
+                      >
+                        Remove
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>
@@ -154,10 +391,16 @@ export default async function RequirementDetailPage({
         >
           <input type="hidden" name="requirement_id" value={r.id} />
           <div className="min-w-[200px] flex-1">
-            <label className={label} htmlFor="oem_id">
+            <label className={label} htmlFor="oem_id_sourcing">
               Shortlist an OEM
             </label>
-            <select id="oem_id" name="oem_id" required className={input} defaultValue="">
+            <select
+              id="oem_id_sourcing"
+              name="oem_id"
+              required
+              className={input}
+              defaultValue=""
+            >
               <option value="" disabled>
                 {oemOptions.length ? "Select OEM…" : "No OEMs yet — add one first"}
               </option>

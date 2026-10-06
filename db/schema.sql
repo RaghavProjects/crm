@@ -111,3 +111,23 @@ create table if not exists requirement_oems (
 
 create index if not exists requirement_oems_requirement_id_idx
   on requirement_oems (requirement_id);
+
+-- Quantity coverage (Step 4) -------------------------------------------------
+-- Capacity is PER-ORDER (PRD Q1): an OEM's commitments here do not reduce what
+-- it can offer on another requirement, so there is no cross-order subtraction.
+-- A row is one firm commitment or one availability indication for a line item.
+create table if not exists line_coverage (
+  id            uuid primary key default gen_random_uuid(),
+  requirement_id uuid not null references requirements (id) on delete cascade,
+  line_id       uuid not null references requirement_lines (id) on delete cascade,
+  oem_id        uuid not null references oems (id) on delete cascade,
+  kind          text not null default 'firm',  -- firm | availability
+  quantity      numeric not null check (quantity > 0),
+  delivery_date date,
+  notes         text,
+  created_at    timestamptz not null default now()
+);
+
+create index if not exists line_coverage_line_id_idx on line_coverage (line_id);
+create index if not exists line_coverage_requirement_id_idx
+  on line_coverage (requirement_id);
