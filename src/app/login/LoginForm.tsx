@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -67,10 +68,19 @@ export function LoginForm({ next }: { next?: string }) {
       <button
         type="submit"
         disabled={busy}
-        className="w-full rounded-control bg-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+        className="w-full rounded-control bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-60"
       >
         {busy ? "Signing in…" : "Sign in"}
       </button>
+
+      <div className="relative py-1 text-center text-xs text-muted">or</div>
+
+      <Link
+        href="/guest"
+        className="block w-full rounded-control border border-border px-4 py-2 text-center text-sm font-medium hover:bg-page"
+      >
+        Continue as Guest
+      </Link>
     </form>
   );
 }
