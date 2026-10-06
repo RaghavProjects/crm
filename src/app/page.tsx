@@ -160,7 +160,14 @@ export default async function RequirementsPage({
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id} className="border-t border-border hover:bg-page/60">
-                    <td className="px-4 py-3 font-medium">{r.tender_ref}</td>
+                    <td className="px-4 py-3 font-medium">
+                      <Link
+                        href={`/requirements/${r.id}`}
+                        className="hover:text-primary"
+                      >
+                        {r.tender_ref}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3 text-muted">{r.customer}</td>
                     <td className="px-4 py-3 text-muted">{r.project ?? "—"}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{r.lines}</td>

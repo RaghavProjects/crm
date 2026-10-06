@@ -67,3 +67,47 @@ drop trigger if exists requirements_set_updated_at on requirements;
 create trigger requirements_set_updated_at
   before update on requirements
   for each row execute function set_updated_at();
+
+-- OEM master (Step 3) ------------------------------------------------------
+create table if not exists oems (
+  id             uuid primary key default gen_random_uuid(),
+  name           text not null,
+  location       text,
+  spoc           text,               -- single point of contact
+  mobile         text,
+  email          text,
+  gst_no         text,
+  vendor_code    text,
+  products       text,               -- products supplied
+  capabilities   text,
+  lead_time_days int,
+  approved       boolean not null default false,
+  commission_pct numeric,
+  notes          text,
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+
+drop trigger if exists oems_set_updated_at on oems;
+create trigger oems_set_updated_at
+  before update on oems
+  for each row execute function set_updated_at();
+
+-- Sourcing: an OEM shortlisted against a requirement, plus request/response --
+create table if not exists requirement_oems (
+  id             uuid primary key default gen_random_uuid(),
+  requirement_id uuid not null references requirements (id) on delete cascade,
+  oem_id         uuid not null references oems (id) on delete cascade,
+  status         text not null default 'shortlisted',  -- shortlisted | requested | responded | declined
+  requested_on   date,
+  responded_on   date,
+  request_notes  text,
+  response_notes text,
+  quoted_price   numeric,
+  lead_time_days int,
+  created_at     timestamptz not null default now(),
+  unique (requirement_id, oem_id)
+);
+
+create index if not exists requirement_oems_requirement_id_idx
+  on requirement_oems (requirement_id);

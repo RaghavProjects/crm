@@ -151,3 +151,59 @@ export async function createRequirement(
     };
   }
 }
+
+export type RequirementLine = {
+  id: string;
+  part_description: string;
+  client_part_no: string | null;
+  oem_part_no: string | null;
+  quantity: number | null;
+  unit: string | null;
+};
+
+export type RequirementDetail = {
+  id: string;
+  tender_ref: string;
+  customer: string;
+  project: string | null;
+  source: string | null;
+  submission_deadline: string | null;
+  status: string;
+  notes: string | null;
+  lines: RequirementLine[];
+};
+
+export type DetailResult =
+  | { ok: true; data: RequirementDetail }
+  | { ok: false; error: string };
+
+export async function getRequirement(id: string): Promise<DetailResult> {
+  try {
+    const { data, error } = await supabaseAdmin()
+      .from("requirements")
+      .select(
+        "id,tender_ref,customer,project,source,submission_deadline,status,notes,requirement_lines(id,part_description,client_part_no,oem_part_no,quantity,unit,sort_order)",
+      )
+      .eq("id", id)
+      .single();
+
+    if (error || !data) {
+      return { ok: false, error: error?.message ?? "Requirement not found." };
+    }
+
+    const lines: RequirementLine[] = [...(data.requirement_lines ?? [])]
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+      .map((l) => ({
+        id: l.id,
+        part_description: l.part_description,
+        client_part_no: l.client_part_no,
+        oem_part_no: l.oem_part_no,
+        quantity: l.quantity,
+        unit: l.unit,
+      }));
+
+    return { ok: true, data: { ...data, lines } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
