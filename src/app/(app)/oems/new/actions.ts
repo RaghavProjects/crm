@@ -2,10 +2,13 @@
 
 import { redirect } from "next/navigation";
 import { createOem } from "@/lib/oems";
+import { getSessionUser } from "@/lib/supabase/server";
+import { recordAudit } from "@/lib/audit";
 
 export async function createOemAction(formData: FormData) {
+  const name = String(formData.get("name") ?? "");
   const res = await createOem({
-    name: String(formData.get("name") ?? ""),
+    name,
     location: String(formData.get("location") ?? ""),
     spoc: String(formData.get("spoc") ?? ""),
     mobile: String(formData.get("mobile") ?? ""),
@@ -23,5 +26,15 @@ export async function createOemAction(formData: FormData) {
   if (!res.ok) {
     redirect(`/oems/new?error=${encodeURIComponent(res.error)}`);
   }
+
+  const user = await getSessionUser();
+  await recordAudit({
+    actor: user?.email ?? null,
+    entity: "oem",
+    entity_id: res.id,
+    action: "created",
+    details: { name },
+  });
+
   redirect("/oems?created=1");
 }

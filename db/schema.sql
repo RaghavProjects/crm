@@ -131,3 +131,58 @@ create table if not exists line_coverage (
 create index if not exists line_coverage_line_id_idx on line_coverage (line_id);
 create index if not exists line_coverage_requirement_id_idx
   on line_coverage (requirement_id);
+
+-- Auth, roles and audit (Step 5) --------------------------------------------
+-- A profile per auth user, holding their role. New users default to 'sales';
+-- the owner/management role is set by an administrator.
+create table if not exists profiles (
+  user_id    uuid primary key references auth.users (id) on delete cascade,
+  email      text,
+  role       text not null default 'sales',  -- owner | sales | operations | finance | admin
+  created_at timestamptz not null default now()
+);
+
+create or replace function handle_new_user() returns trigger as $$
+begin
+  insert into public.profiles (user_id, email, role)
+  values (new.id, new.email, 'sales')
+  on conflict (user_id) do nothing;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function handle_new_user();
+
+-- Append-only audit trail: what, who, when.
+create table if not exists audit_events (
+  id        bigint generated always as identity primary key,
+  at        timestamptz not null default now(),
+  actor     text,
+  entity    text not null,
+  entity_id text,
+  action    text not null,
+  details   jsonb
+);
+revoke update, delete on audit_events from anon, authenticated;
+
+-- Row Level Security: authenticated users may work; anon gets nothing.
+-- The app's server side uses the secret key, which bypasses RLS; this protects
+-- the publishable key if it is ever used from a browser.
+do $$
+declare t text;
+begin
+  for t in select unnest(array[
+    'requirements','requirement_lines','oems','requirement_oems',
+    'line_coverage','profiles','audit_events','requirement_status'
+  ])
+  loop
+    execute format('alter table %I enable row level security', t);
+    execute format('drop policy if exists "authenticated all" on %I', t);
+    execute format(
+      'create policy "authenticated all" on %I for all to authenticated using (true) with check (true)',
+      t);
+  end loop;
+end $$;
