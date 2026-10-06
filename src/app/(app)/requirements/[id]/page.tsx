@@ -129,9 +129,17 @@ export default async function RequirementDetailPage({
     .reduce((s, c) => s + c.quantity, 0);
   const uncovered = Math.max(0, required - firm);
   const covered = required > 0 && uncovered === 0 && firm > 0;
+  const nextAction =
+    uncovered > 0
+      ? "Confirm quantity coverage"
+      : (quotes.ok ? quotes.rows.length : 0) === 0
+        ? "Build a quotation"
+        : (orders.ok ? orders.rows.length : 0) === 0
+          ? "Convert approved quotation to order"
+          : "Track fulfilment";
 
   return (
-    <div className="mx-auto max-w-[1100px] space-y-6">
+    <div className="mx-auto max-w-[1200px] space-y-6">
       <div className="text-xs text-muted">
         <Link href="/" className="hover:text-ink">
           Requirements
@@ -228,6 +236,8 @@ export default async function RequirementDetailPage({
         </div>
       )}
 
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="space-y-6">
       <section className="rounded-card border border-border bg-surface">
         <div className="border-b border-border px-4 py-3 text-sm font-semibold">
           Line items{" "}
@@ -917,6 +927,42 @@ export default async function RequirementDetailPage({
           </div>
         )}
       </section>
+        </div>
+
+        <aside className="space-y-4">
+          <div className="panel p-4">
+            <div className="label">Next action</div>
+            <div className="mt-1 text-sm font-medium">{nextAction}</div>
+          </div>
+          <div className="panel p-4">
+            <div className="label">Coverage</div>
+            <div className="mt-1 text-sm">
+              {covered
+                ? "Fully covered by firm commitments"
+                : required === 0
+                  ? "No quantities to cover"
+                  : `${num(uncovered)} uncovered`}
+            </div>
+          </div>
+          <div className="panel p-4">
+            <div className="label">Key facts</div>
+            <dl className="mt-1 space-y-1 text-xs">
+              <div className="flex justify-between">
+                <dt className="text-muted">Quotations</dt>
+                <dd className="font-mono">{quotes.ok ? quotes.rows.length : 0}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted">Orders</dt>
+                <dd className="font-mono">{orders.ok ? orders.rows.length : 0}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted">Deadline</dt>
+                <dd className="font-mono">{fmt(r.submission_deadline)}</dd>
+              </div>
+            </dl>
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }

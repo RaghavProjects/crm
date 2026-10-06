@@ -80,6 +80,11 @@ export default async function AnalyticsPage({
         <p className="mt-1 text-sm text-muted">
           Sales, delivery, OEM, client and finance analysis.
         </p>
+        <p className="mt-2 rounded-control border border-border bg-warm-tint px-3 py-2 text-xs text-muted">
+          Indicative only. Tender conversion, delivery adherence and revenue basis
+          do not yet have agreed definitions (numerator/denominator, eligible
+          records, recognized basis) — treat these until sign-off.
+        </p>
       </div>
 
       <div className="flex flex-wrap gap-1 border-b border-border pb-2">
