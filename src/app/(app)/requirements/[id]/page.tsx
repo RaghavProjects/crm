@@ -3,6 +3,7 @@ import { getRequirement } from "@/lib/requirements";
 import { listSourcing } from "@/lib/sourcing";
 import { listCoverage } from "@/lib/coverage";
 import { listQuotes, getPastBids } from "@/lib/quotes";
+import { listOrders } from "@/lib/orders";
 import { listOemOptions } from "@/lib/oems";
 import { QuoteForm } from "./QuoteForm";
 import {
@@ -11,6 +12,8 @@ import {
   addCoverageAction,
   deleteCoverageAction,
   approveQuoteAction,
+  createOrderAction,
+  addInvoiceAction,
 } from "./actions";
 
 const input =
@@ -89,8 +92,12 @@ export default async function RequirementDetailPage({
   const coverage = await listCoverage(id);
   const oemOptions = await listOemOptions();
   const quotes = await listQuotes(id);
+  const orders = await listOrders(id);
   const keyword = r.lines[0]?.part_description?.split(/\s+/)[0] ?? null;
   const pastBids = await getPastBids(id, keyword);
+  const approvedQuotes = quotes.ok
+    ? quotes.rows.filter((q) => q.status === "approved")
+    : [];
 
   // Per-line firm / availability totals, from the coverage records.
   const byLine = new Map<string, { firm: number; avail: number }>();
@@ -525,6 +532,188 @@ export default async function RequirementDetailPage({
             </div>
           )}
         </div>
+      </section>
+
+      <section className="rounded-card border border-border bg-surface">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <span className="text-sm font-semibold">Orders &amp; POs</span>
+          <span className="text-xs text-muted">
+            No orphan PO · always from an approved quotation
+          </span>
+        </div>
+
+        {!orders.ok && (
+          <p className="px-4 py-4 text-sm text-[#b91c1c]">
+            Could not load orders: {orders.error}
+          </p>
+        )}
+
+        {approvedQuotes.length === 0 ? (
+          <p className="px-4 py-4 text-sm text-muted">
+            Approve a quotation before creating an order.
+          </p>
+        ) : (
+          <form
+            action={createOrderAction}
+            className="grid gap-3 border-b border-border p-4 sm:grid-cols-3"
+          >
+            <input type="hidden" name="requirement_id" value={r.id} />
+            <div>
+              <label className={label} htmlFor="quote_id">
+                Approved quotation
+              </label>
+              <select
+                id="quote_id"
+                name="quote_id"
+                required
+                defaultValue={approvedQuotes[0].id}
+                className={input}
+              >
+                {approvedQuotes.map((q) => (
+                  <option key={q.id} value={q.id}>
+                    Version {q.version}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={label} htmlFor="po_number">
+                PO number *
+              </label>
+              <input id="po_number" name="po_number" required className={input} />
+            </div>
+            <div>
+              <label className={label} htmlFor="po_date">
+                PO date
+              </label>
+              <input id="po_date" name="po_date" type="date" className={input} />
+            </div>
+            <div>
+              <label className={label} htmlFor="delivery_deadline">
+                Delivery deadline
+              </label>
+              <input
+                id="delivery_deadline"
+                name="delivery_deadline"
+                type="date"
+                className={input}
+              />
+            </div>
+            <div>
+              <label className={label} htmlFor="oem_id_order">
+                OEM
+              </label>
+              <select id="oem_id_order" name="oem_id" defaultValue="" className={input}>
+                <option value="">—</option>
+                {oemOptions.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={label} htmlFor="supplier_po">
+                Supplier PO
+              </label>
+              <input id="supplier_po" name="supplier_po" className={input} />
+            </div>
+            <div className="flex items-end gap-4 sm:col-span-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="pdi_required" /> PDI required
+              </label>
+              <button
+                type="submit"
+                className="rounded-control bg-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+              >
+                Create order
+              </button>
+            </div>
+          </form>
+        )}
+
+        {orders.ok && orders.rows.length === 0 && (
+          <p className="px-4 py-6 text-sm text-muted">No orders yet.</p>
+        )}
+
+        {orders.rows.length > 0 && (
+          <div className="divide-y divide-border">
+            {orders.rows.map((o) => (
+              <div key={o.id} className="p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium">PO {o.po_number}</span>
+                    <Badge
+                      value={o.status}
+                      map={{
+                        open: "bg-primary/10 text-primary",
+                        completed: "bg-success/15 text-[#15803d]",
+                        cancelled: "bg-border/60 text-muted",
+                      }}
+                    />
+                    {o.pdi_required && (
+                      <span className="text-[11px] text-muted">PDI required</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted">
+                    {o.oem_name ? `OEM ${o.oem_name} · ` : ""}
+                    PO date {fmt(o.po_date)} · due {fmt(o.delivery_deadline)}
+                    {o.supplier_po ? ` · supplier PO ${o.supplier_po}` : ""}
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <div className="text-xs font-medium text-muted">
+                    Invoices ({o.invoices.length})
+                  </div>
+                  {o.invoices.length > 0 && (
+                    <ul className="mt-1 space-y-1 text-xs text-muted">
+                      {o.invoices.map((i) => (
+                        <li key={i.id}>
+                          {i.invoice_number} · {fmt(i.invoice_date)}
+                          {i.amount != null ? ` · ₹${num(i.amount)}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <form
+                    action={addInvoiceAction}
+                    className="mt-2 grid gap-2 sm:grid-cols-4"
+                  >
+                    <input type="hidden" name="requirement_id" value={r.id} />
+                    <input type="hidden" name="order_id" value={o.id} />
+                    <input
+                      aria-label="Invoice number"
+                      name="invoice_number"
+                      placeholder="Invoice number *"
+                      required
+                      className={input}
+                    />
+                    <input
+                      aria-label="Invoice date"
+                      name="invoice_date"
+                      type="date"
+                      className={input}
+                    />
+                    <input
+                      aria-label="Amount"
+                      name="amount"
+                      placeholder="Amount"
+                      inputMode="decimal"
+                      className={input}
+                    />
+                    <button
+                      type="submit"
+                      className="rounded-control border border-border px-3 py-2 text-sm font-medium hover:bg-page"
+                    >
+                      Add invoice
+                    </button>
+                  </form>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="rounded-card border border-border bg-surface">

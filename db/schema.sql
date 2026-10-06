@@ -223,6 +223,44 @@ join requirements r on r.id = q.requirement_id;
 
 grant select on past_bids to authenticated;
 
+-- Orders and POs (Step 7) ----------------------------------------------------
+-- No orphan PO: quote_id is required, so an order can only exist from a quote.
+-- The application additionally checks that the quote is approved.
+create table if not exists orders (
+  id                uuid primary key default gen_random_uuid(),
+  requirement_id    uuid not null references requirements (id) on delete cascade,
+  quote_id          uuid not null references quotes (id) on delete restrict,
+  po_number         text not null,
+  po_date           date,
+  delivery_deadline date,
+  oem_id            uuid references oems (id) on delete set null,
+  supplier_po       text,
+  pdi_required      boolean not null default false,
+  notes             text,
+  status            text not null default 'open',  -- open | completed | cancelled
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now()
+);
+
+drop trigger if exists orders_set_updated_at on orders;
+create trigger orders_set_updated_at
+  before update on orders
+  for each row execute function set_updated_at();
+
+-- One PO can have multiple invoices.
+create table if not exists order_invoices (
+  id             uuid primary key default gen_random_uuid(),
+  order_id       uuid not null references orders (id) on delete cascade,
+  invoice_number text not null,
+  invoice_date   date,
+  amount         numeric check (amount >= 0),
+  notes          text,
+  created_at     timestamptz not null default now()
+);
+
+create index if not exists orders_requirement_id_idx on orders (requirement_id);
+create index if not exists order_invoices_order_id_idx on order_invoices (order_id);
+
 -- Row Level Security: authenticated users may work; anon gets nothing.
 -- The app's server side uses the secret key, which bypasses RLS; this protects
 -- the publishable key if it is ever used from a browser.
@@ -232,7 +270,7 @@ begin
   for t in select unnest(array[
     'requirements','requirement_lines','oems','requirement_oems',
     'line_coverage','profiles','audit_events','requirement_status',
-    'quotes','quote_lines'
+    'quotes','quote_lines','orders','order_invoices'
   ])
   loop
     execute format('alter table %I enable row level security', t);

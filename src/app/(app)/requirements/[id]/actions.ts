@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { shortlistOem, logResponse } from "@/lib/sourcing";
 import { addCoverage, deleteCoverage } from "@/lib/coverage";
 import { createQuote, approveQuote, type NewQuoteLine } from "@/lib/quotes";
+import { createOrderFromQuote, addInvoice } from "@/lib/orders";
 import { getSessionUser } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit";
 
@@ -134,6 +135,57 @@ export async function approveQuoteAction(formData: FormData) {
     entity: "quote",
     entity_id: quoteId,
     action: "approved",
+  });
+  redirect(`/requirements/${requirementId}?ok=1`);
+}
+
+export async function createOrderAction(formData: FormData) {
+  const requirementId = String(formData.get("requirement_id") ?? "");
+  const po = String(formData.get("po_number") ?? "");
+  const res = await createOrderFromQuote(requirementId, {
+    quote_id: String(formData.get("quote_id") ?? ""),
+    po_number: po,
+    po_date: String(formData.get("po_date") ?? ""),
+    delivery_deadline: String(formData.get("delivery_deadline") ?? ""),
+    oem_id: String(formData.get("oem_id") ?? ""),
+    supplier_po: String(formData.get("supplier_po") ?? ""),
+    pdi_required: formData.get("pdi_required") === "on",
+    notes: String(formData.get("notes") ?? ""),
+  });
+  if (!res.ok) {
+    redirect(`/requirements/${requirementId}?error=${encodeURIComponent(res.error)}`);
+  }
+  const user = await getSessionUser();
+  await recordAudit({
+    actor: user?.email ?? null,
+    entity: "order",
+    entity_id: requirementId,
+    action: "created",
+    details: { po_number: po },
+  });
+  redirect(`/requirements/${requirementId}?ok=1`);
+}
+
+export async function addInvoiceAction(formData: FormData) {
+  const requirementId = String(formData.get("requirement_id") ?? "");
+  const orderId = String(formData.get("order_id") ?? "");
+  const invoiceNumber = String(formData.get("invoice_number") ?? "");
+  const res = await addInvoice(orderId, {
+    invoice_number: invoiceNumber,
+    invoice_date: String(formData.get("invoice_date") ?? ""),
+    amount: String(formData.get("amount") ?? ""),
+    notes: String(formData.get("notes") ?? ""),
+  });
+  if (!res.ok) {
+    redirect(`/requirements/${requirementId}?error=${encodeURIComponent(res.error)}`);
+  }
+  const user = await getSessionUser();
+  await recordAudit({
+    actor: user?.email ?? null,
+    entity: "invoice",
+    entity_id: orderId,
+    action: "added",
+    details: { invoice_number: invoiceNumber },
   });
   redirect(`/requirements/${requirementId}?ok=1`);
 }
