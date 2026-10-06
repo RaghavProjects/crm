@@ -2,7 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Refreshes the auth session on every request and gates the app behind login.
-// A "crm_demo" cookie grants guest (demo) access without credentials.
+// A "crm_demo" cookie grants READ-ONLY guest access: GET/HEAD are allowed,
+// every mutation (POST, e.g. a server action) is redirected to /demo-readonly.
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -36,7 +37,13 @@ export async function middleware(request: NextRequest) {
   const isAuthRoute =
     path.startsWith("/login") ||
     path.startsWith("/auth") ||
-    path.startsWith("/guest");
+    path.startsWith("/guest") ||
+    path.startsWith("/demo-readonly");
+
+  // Read-only guard: a guest (demo cookie, no real user) may not mutate.
+  if (demo && !user && request.method !== "GET" && request.method !== "HEAD") {
+    return NextResponse.redirect(new URL("/demo-readonly", request.url));
+  }
 
   const signedIn = Boolean(user) || demo;
 

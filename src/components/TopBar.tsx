@@ -140,13 +140,21 @@ export function TopBar({ email }: { email: string | null }) {
               {initials}
             </summary>
             <div className={menu}>
-              {email && <div className="truncate px-3 py-2 text-xs text-muted">{email}</div>}
+              <div className="truncate px-3 py-2 text-xs text-muted">
+                {email ?? "Guest (demo — read-only)"}
+              </div>
               <div className="my-1 border-t border-border" />
-              <form action={signOutAction}>
-                <button type="submit" className={`${menuItem} w-full text-left`}>
-                  Sign out
-                </button>
-              </form>
+              {email ? (
+                <form action={signOutAction}>
+                  <button type="submit" className={`${menuItem} w-full text-left`}>
+                    Sign out
+                  </button>
+                </form>
+              ) : (
+                <Link href="/guest/exit" className={menuItem}>
+                  Exit demo
+                </Link>
+              )}
             </div>
           </details>
         </div>
