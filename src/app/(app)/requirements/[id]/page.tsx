@@ -1,5 +1,9 @@
 import Link from "next/link";
-import { getRequirement } from "@/lib/requirements";
+import {
+  getRequirement,
+  LOSS_REASONS,
+  REQUIREMENT_STATUSES,
+} from "@/lib/requirements";
 import { listSourcing } from "@/lib/sourcing";
 import { listCoverage } from "@/lib/coverage";
 import { listQuotes, getPastBids } from "@/lib/quotes";
@@ -14,6 +18,7 @@ import {
   approveQuoteAction,
   createOrderAction,
   addInvoiceAction,
+  setStatusAction,
 } from "./actions";
 
 const input =
@@ -139,6 +144,62 @@ export default async function RequirementDetailPage({
           Submission deadline:{" "}
           <span className="tabular-nums">{fmt(r.submission_deadline)}</span>
         </p>
+
+        <form action={setStatusAction} className="mt-3 flex flex-wrap items-end gap-2">
+          <input type="hidden" name="requirement_id" value={r.id} />
+          <div>
+            <label className={label} htmlFor="status">
+              Status
+            </label>
+            <select
+              id="status"
+              name="status"
+              defaultValue={r.status}
+              className={`${input} w-40 capitalize`}
+            >
+              {REQUIREMENT_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={label} htmlFor="loss_reason">
+              Loss reason
+            </label>
+            <select
+              id="loss_reason"
+              name="loss_reason"
+              defaultValue={r.loss_reason ?? ""}
+              className={`${input} w-56`}
+            >
+              <option value="">— (required when lost)</option>
+              {LOSS_REASONS.map((x) => (
+                <option key={x} value={x}>
+                  {x}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="min-w-[180px] flex-1">
+            <label className={label} htmlFor="loss_notes">
+              Loss notes
+            </label>
+            <input
+              id="loss_notes"
+              name="loss_notes"
+              defaultValue={r.loss_notes ?? ""}
+              className={input}
+            />
+          </div>
+          <button
+            type="submit"
+            className="rounded-control border border-border px-3 py-2 text-sm font-medium hover:bg-page"
+          >
+            Update status
+          </button>
+        </form>
       </div>
 
       {sp.error && (

@@ -5,8 +5,31 @@ import { shortlistOem, logResponse } from "@/lib/sourcing";
 import { addCoverage, deleteCoverage } from "@/lib/coverage";
 import { createQuote, approveQuote, type NewQuoteLine } from "@/lib/quotes";
 import { createOrderFromQuote, addInvoice } from "@/lib/orders";
+import { updateRequirementStatus } from "@/lib/requirements";
 import { getSessionUser } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit";
+
+export async function setStatusAction(formData: FormData) {
+  const requirementId = String(formData.get("requirement_id") ?? "");
+  const status = String(formData.get("status") ?? "");
+  const res = await updateRequirementStatus(
+    requirementId,
+    status,
+    String(formData.get("loss_reason") ?? ""),
+    String(formData.get("loss_notes") ?? ""),
+  );
+  if (!res.ok) {
+    redirect(`/requirements/${requirementId}?error=${encodeURIComponent(res.error)}`);
+  }
+  const user = await getSessionUser();
+  await recordAudit({
+    actor: user?.email ?? null,
+    entity: "requirement",
+    entity_id: requirementId,
+    action: `status:${status}`,
+  });
+  redirect(`/requirements/${requirementId}?ok=1`);
+}
 
 export async function shortlistOemAction(formData: FormData) {
   const requirementId = String(formData.get("requirement_id") ?? "");

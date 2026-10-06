@@ -74,6 +74,55 @@ export async function listOrders(requirementId: string): Promise<OrdersResult> {
 
 export type MutateResult = { ok: true } | { ok: false; error: string };
 
+export type OrderSummary = {
+  id: string;
+  po_number: string;
+  po_date: string | null;
+  delivery_deadline: string | null;
+  status: string;
+  oem_name: string | null;
+  tender_ref: string;
+  customer: string;
+};
+
+export type OrderSummariesResult =
+  | { ok: true; rows: OrderSummary[] }
+  | { ok: false; error: string; rows: [] };
+
+export async function listAllOrders(): Promise<OrderSummariesResult> {
+  try {
+    const { data, error } = await supabaseAdmin()
+      .from("orders")
+      .select(
+        "id,po_number,po_date,delivery_deadline,status,oems(name),requirements(tender_ref,customer)",
+      )
+      .order("created_at", { ascending: false });
+    if (error) return { ok: false, error: error.message, rows: [] };
+
+    const rows: OrderSummary[] = (data ?? []).map((o) => {
+      const oem = Array.isArray(o.oems) ? o.oems[0] : o.oems;
+      const req = Array.isArray(o.requirements) ? o.requirements[0] : o.requirements;
+      return {
+        id: o.id,
+        po_number: o.po_number,
+        po_date: o.po_date,
+        delivery_deadline: o.delivery_deadline,
+        status: o.status,
+        oem_name: oem?.name ?? null,
+        tender_ref: req?.tender_ref ?? "—",
+        customer: req?.customer ?? "—",
+      };
+    });
+    return { ok: true, rows };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : String(e),
+      rows: [],
+    };
+  }
+}
+
 export type NewOrder = {
   quote_id: string;
   po_number: string;

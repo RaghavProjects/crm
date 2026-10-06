@@ -170,6 +170,8 @@ export type RequirementDetail = {
   submission_deadline: string | null;
   status: string;
   notes: string | null;
+  loss_reason: string | null;
+  loss_notes: string | null;
   lines: RequirementLine[];
 };
 
@@ -182,7 +184,7 @@ export async function getRequirement(id: string): Promise<DetailResult> {
     const { data, error } = await supabaseAdmin()
       .from("requirements")
       .select(
-        "id,tender_ref,customer,project,source,submission_deadline,status,notes,requirement_lines(id,part_description,client_part_no,oem_part_no,quantity,unit,sort_order)",
+        "id,tender_ref,customer,project,source,submission_deadline,status,notes,loss_reason,loss_notes,requirement_lines(id,part_description,client_part_no,oem_part_no,quantity,unit,sort_order)",
       )
       .eq("id", id)
       .single();
@@ -203,6 +205,65 @@ export async function getRequirement(id: string): Promise<DetailResult> {
       }));
 
     return { ok: true, data: { ...data, lines } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export const REQUIREMENT_STATUSES = [
+  "received",
+  "qualifying",
+  "quoted",
+  "submitted",
+  "won",
+  "lost",
+  "cancelled",
+];
+
+// Provisional labels (PRD Q4). Changeable as data, not code.
+export const LOSS_REASONS = [
+  "Price",
+  "Technical non-compliance",
+  "Delivery timeline",
+  "Competitor preference",
+  "Quantity / capacity",
+  "Cancelled",
+  "Not pursued",
+  "Other",
+];
+
+export type MutateResult = { ok: true } | { ok: false; error: string };
+
+export async function updateRequirementStatus(
+  id: string,
+  status: string,
+  lossReason?: string,
+  lossNotes?: string,
+): Promise<MutateResult> {
+  if (!id) return { ok: false, error: "Requirement is required." };
+  if (!REQUIREMENT_STATUSES.includes(status)) {
+    return { ok: false, error: "Invalid status." };
+  }
+  let reason = lossReason?.trim() || null;
+  if (status === "lost" && !reason) {
+    return {
+      ok: false,
+      error: "A loss reason is required when marking a requirement lost.",
+    };
+  }
+  if (status !== "lost") reason = null;
+
+  try {
+    const { error } = await supabaseAdmin()
+      .from("requirements")
+      .update({
+        status,
+        loss_reason: reason,
+        loss_notes: lossNotes?.trim() || null,
+      })
+      .eq("id", id);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }

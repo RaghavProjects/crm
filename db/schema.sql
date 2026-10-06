@@ -356,6 +356,10 @@ create table if not exists commission_entries (
 create index if not exists commission_entries_order_id_idx
   on commission_entries (order_id);
 
+-- Loss reasons and status lifecycle (Step 10) -------------------------------
+alter table requirements add column if not exists loss_reason text;
+alter table requirements add column if not exists loss_notes text;
+
 -- Row Level Security: authenticated users may work; anon gets nothing.
 -- The app's server side uses the secret key, which bypasses RLS; this protects
 -- the publishable key if it is ever used from a browser.
