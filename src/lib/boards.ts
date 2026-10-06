@@ -144,6 +144,8 @@ export type InvoiceRow = {
   amount: number | null;
   paid: number;
   balance: number;
+  invoice_date: string | null;
+  status: "paid" | "overdue" | "outstanding";
   order_id: string;
   po_number: string;
   tender_ref: string;
@@ -159,7 +161,7 @@ export async function listPaymentsBoard(): Promise<PaymentsBoardResult> {
     const [inv, pay, comm] = await Promise.all([
       db
         .from("order_invoices")
-        .select("id,invoice_number,amount,order_id,orders(po_number,requirements(tender_ref))"),
+        .select("id,invoice_number,amount,invoice_date,order_id,orders(po_number,requirements(tender_ref))"),
       db.from("payments").select("invoice_id,amount"),
       db.from("commission_entries").select("commission_amount,status"),
     ]);
@@ -176,12 +178,18 @@ export async function listPaymentsBoard(): Promise<PaymentsBoardResult> {
       const order = Array.isArray(i.orders) ? i.orders[0] : i.orders;
       const req = order ? (Array.isArray(order.requirements) ? order.requirements[0] : order.requirements) : null;
       const p = paid.get(i.id) ?? 0;
+      const balance = Math.max(0, (Number(i.amount) || 0) - p);
+      const overdueBefore = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+      const status: InvoiceRow["status"] =
+        balance <= 0 ? "paid" : i.invoice_date && i.invoice_date < overdueBefore ? "overdue" : "outstanding";
       return {
         id: i.id,
         invoice_number: i.invoice_number,
         amount: i.amount == null ? null : Number(i.amount),
         paid: p,
-        balance: Math.max(0, (Number(i.amount) || 0) - p),
+        balance,
+        invoice_date: i.invoice_date,
+        status,
         order_id: i.order_id,
         po_number: order?.po_number ?? "—",
         tender_ref: req?.tender_ref ?? "—",
