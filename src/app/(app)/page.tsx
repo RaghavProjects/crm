@@ -1,24 +1,14 @@
 import Link from "next/link";
 import { listRequirements, type RequirementRow } from "@/lib/requirements";
 
-const statusStyle: Record<string, string> = {
-  received: "bg-border/60 text-muted",
-  qualifying: "bg-warning/15 text-[#b45309]",
-  quoted: "bg-primary/10 text-primary",
-  submitted: "bg-primary/10 text-primary",
-  won: "bg-success/15 text-[#15803d]",
-  lost: "bg-danger/15 text-[#b91c1c]",
-  cancelled: "bg-border/60 text-muted",
-};
-
-const statusLabel: Record<string, string> = {
-  received: "Received",
-  qualifying: "Qualifying",
-  quoted: "Quoted",
-  submitted: "Submitted",
-  won: "Won",
-  lost: "Lost",
-  cancelled: "Cancelled",
+const statusColor: Record<string, string> = {
+  received: "bg-muted",
+  qualifying: "bg-warning",
+  quoted: "bg-primary",
+  submitted: "bg-primary",
+  won: "bg-success",
+  lost: "bg-danger",
+  cancelled: "bg-muted",
 };
 
 const DAY = 86_400_000;
@@ -37,14 +27,11 @@ function formatDate(deadline: string) {
   }).format(new Date(`${deadline}T00:00:00Z`));
 }
 
-function Badge({ value }: { value: string }) {
+function StatusDot({ value }: { value: string }) {
   return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
-        statusStyle[value] ?? "bg-border/60 text-muted"
-      }`}
-    >
-      {statusLabel[value] ?? value}
+    <span className="inline-flex items-center gap-1.5 text-xs">
+      <span className={`size-1.5 rounded-full ${statusColor[value] ?? "bg-muted"}`} />
+      <span className="capitalize text-ink">{value}</span>
     </span>
   );
 }
@@ -69,24 +56,14 @@ export default async function RequirementsPage({
     (r) => r.submission_deadline && daysLeft(r.submission_deadline) <= 7,
   );
 
-  const tiles = [
-    { label: "Open requirements", value: open.length },
-    { label: "Submitted", value: submitted.length },
-    { label: "Won (this month)", value: won.length },
-    { label: "At risk ≤ 7 days", value: atRisk.length, danger: true },
-  ];
-
   return (
-    <div className="mx-auto max-w-[1440px] space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="mx-auto max-w-[1200px] space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-[26px] font-semibold tracking-tight md:text-[28px]">
+          <span className="label">Work</span>
+          <h1 className="mt-1 text-[28px] font-semibold tracking-tight">
             Requirements
           </h1>
-          <p className="mt-1 text-sm text-muted">
-            The central record. Every OEM sourcing, quote, PO and delivery hangs
-            off a requirement.
-          </p>
         </div>
         <Link
           href="/requirements/new"
@@ -96,43 +73,41 @@ export default async function RequirementsPage({
         </Link>
       </div>
 
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-y border-border py-2.5 text-sm text-muted">
+        <span>
+          <b className="font-semibold text-ink">{open.length}</b> open
+        </span>
+        <span aria-hidden className="text-border">·</span>
+        <span>
+          <b className="font-semibold text-ink">{submitted.length}</b> submitted
+        </span>
+        <span aria-hidden className="text-border">·</span>
+        <span>
+          <b className="font-semibold text-ink">{won.length}</b> won this month
+        </span>
+        <span aria-hidden className="text-border">·</span>
+        <span className={atRisk.length > 0 ? "text-danger" : ""}>
+          <b className="font-semibold">{atRisk.length}</b> at risk
+        </span>
+      </div>
+
       {sp.created && (
-        <div className="rounded-card border border-success/30 bg-success/10 p-3 text-sm text-[#15803d]">
+        <div className="rounded-card border border-success/30 bg-success/5 p-3 text-sm text-success">
           Requirement saved.
         </div>
       )}
 
       {!res.ok && (
-        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-[#b91c1c]">
+        <div className="rounded-card border border-danger/30 bg-danger/5 p-3 text-sm text-danger">
           Could not load requirements: {res.error}
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {tiles.map((t) => (
-          <div
-            key={t.label}
-            className="rounded-card border border-border bg-surface p-4"
-          >
-            <div className="text-xs text-muted">{t.label}</div>
-            <div
-              className={`mt-1 text-2xl font-semibold ${
-                "danger" in t && t.danger && t.value > 0
-                  ? "text-danger"
-                  : "text-ink"
-              }`}
-            >
-              {t.value}
-            </div>
-          </div>
-        ))}
-      </div>
-
       {res.ok && rows.length === 0 && (
-        <div className="rounded-card border border-border bg-surface p-10 text-center">
+        <div className="rounded-card border border-border bg-surface p-12 text-center">
           <p className="text-sm font-medium">No requirements yet</p>
           <p className="mt-1 text-sm text-muted">
-            Add the first RFI to start the board.
+            Add the first RFI to start the desk.
           </p>
           <Link
             href="/requirements/new"
@@ -147,48 +122,53 @@ export default async function RequirementsPage({
         <>
           <div className="hidden overflow-hidden rounded-card border border-border bg-surface md:block">
             <table className="w-full text-left text-sm">
-              <thead className="bg-page text-xs text-muted">
+              <thead>
                 <tr>
-                  <th className="px-4 py-3 font-medium">Tender / Enquiry ref</th>
-                  <th className="px-4 py-3 font-medium">Customer</th>
-                  <th className="px-4 py-3 font-medium">Project</th>
-                  <th className="px-4 py-3 text-right font-medium">Lines</th>
-                  <th className="px-4 py-3 font-medium">Submission deadline</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="label px-4 py-2.5 font-medium">Tender ref</th>
+                  <th className="label px-4 py-2.5 font-medium">Customer</th>
+                  <th className="label px-4 py-2.5 font-medium">Project</th>
+                  <th className="label px-4 py-2.5 text-right font-medium">
+                    Lines
+                  </th>
+                  <th className="label px-4 py-2.5 font-medium">Deadline</th>
+                  <th className="label px-4 py-2.5 font-medium">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id} className="border-t border-border hover:bg-page/60">
-                    <td className="px-4 py-3 font-medium">
+                  <tr
+                    key={r.id}
+                    className="group border-t border-border hover:bg-page/70"
+                  >
+                    <td className="px-4 py-3">
                       <Link
                         href={`/requirements/${r.id}`}
-                        className="hover:text-primary"
+                        className="font-mono text-[13px] font-medium group-hover:text-primary"
                       >
                         {r.tender_ref}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-muted">{r.customer}</td>
+                    <td className="px-4 py-3">{r.customer}</td>
                     <td className="px-4 py-3 text-muted">{r.project ?? "—"}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">{r.lines}</td>
+                    <td className="px-4 py-3 text-right">{r.lines}</td>
                     <td className="px-4 py-3">
                       {r.submission_deadline ? (
-                        <>
-                          <span className="tabular-nums">
-                            {formatDate(r.submission_deadline)}
-                          </span>
-                          {isOpen(r) && daysLeft(r.submission_deadline) <= 7 && (
-                            <span className="ml-2 text-xs font-medium text-danger">
-                              {daysLeft(r.submission_deadline)}d
-                            </span>
-                          )}
-                        </>
+                        <span className="font-mono text-[13px]">
+                          {formatDate(r.submission_deadline)}
+                        </span>
                       ) : (
                         <span className="text-muted">—</span>
                       )}
+                      {r.submission_deadline &&
+                        isOpen(r) &&
+                        daysLeft(r.submission_deadline) <= 7 && (
+                          <span className="ml-2 text-xs font-medium text-danger">
+                            {daysLeft(r.submission_deadline)}d
+                          </span>
+                        )}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge value={r.status} />
+                      <StatusDot value={r.status} />
                     </td>
                   </tr>
                 ))}
@@ -196,15 +176,16 @@ export default async function RequirementsPage({
             </table>
           </div>
 
-          <div className="space-y-3 md:hidden">
+          <div className="space-y-2 md:hidden">
             {rows.map((r) => (
-              <div
+              <Link
                 key={r.id}
-                className="rounded-card border border-border bg-surface p-4"
+                href={`/requirements/${r.id}`}
+                className="block rounded-card border border-border bg-surface p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-medium">
+                    <div className="truncate font-mono text-[13px] font-medium">
                       {r.tender_ref}
                     </div>
                     <div className="truncate text-xs text-muted">
@@ -212,17 +193,17 @@ export default async function RequirementsPage({
                       {r.project ? ` · ${r.project}` : ""}
                     </div>
                   </div>
-                  <Badge value={r.status} />
+                  <StatusDot value={r.status} />
                 </div>
                 <div className="mt-3 flex items-center justify-between text-xs text-muted">
                   <span>{r.lines} line items</span>
-                  <span className="tabular-nums">
+                  <span className="font-mono">
                     {r.submission_deadline
                       ? formatDate(r.submission_deadline)
                       : "no deadline"}
                   </span>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </>

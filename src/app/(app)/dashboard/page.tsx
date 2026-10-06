@@ -86,46 +86,114 @@ export default async function DashboardPage({
 
       {res.ok && (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {[
-              { label: "Open requirements", value: res.data.openRequirements },
-              { label: "Open orders", value: res.data.openOrders },
-              { label: "Won this month", value: res.data.wonThisMonth },
-              { label: "Lost this month", value: res.data.lostThisMonth },
-              {
-                label: "Outstanding payments",
-                value: inr(res.data.paymentsOutstanding),
-              },
-              {
-                label: "OEM responses pending",
-                value: res.data.oemResponsesPending,
-              },
-              {
-                label: "Orders at risk",
-                value: res.data.ordersAtRisk.length,
-                danger: res.data.ordersAtRisk.length > 0,
-              },
-              {
-                label: "Documents expiring",
-                value: res.data.documentsExpiring.length,
-                danger: res.data.documentsExpiring.length > 0,
-              },
-            ].map((t) => (
-              <div
-                key={t.label}
-                className="rounded-card border border-border bg-surface p-4"
-              >
-                <div className="text-xs text-muted">{t.label}</div>
-                <div
-                  className={`mt-1 text-xl font-semibold ${
-                    "danger" in t && t.danger ? "text-danger" : "text-ink"
-                  }`}
-                >
-                  {t.value}
-                </div>
+          <div className="flex flex-wrap items-baseline gap-x-10 gap-y-4 border-y border-border py-5">
+            <div>
+              <div className="label">Outstanding payments</div>
+              <div className="mt-1 text-[30px] font-semibold tracking-tight text-ink">
+                {inr(res.data.paymentsOutstanding)}
               </div>
-            ))}
+            </div>
+            <div className="flex flex-1 flex-wrap gap-x-6 gap-y-2 text-sm text-muted">
+              <span>
+                <b className="font-semibold text-ink">
+                  {res.data.openRequirements}
+                </b>{" "}
+                open requirements
+              </span>
+              <span>
+                <b className="font-semibold text-ink">
+                  {res.data.openOrders.length}
+                </b>{" "}
+                open orders
+              </span>
+              <span
+                className={
+                  res.data.quotesAwaitingResponse.length > 0 ? "text-warning" : ""
+                }
+              >
+                <b className="font-semibold">
+                  {res.data.quotesAwaitingResponse.length}
+                </b>{" "}
+                quotes awaiting a response
+              </span>
+              <span>
+                <b className="font-semibold text-ink">{res.data.wonThisMonth}</b>{" "}
+                won this month
+              </span>
+              <span className={res.data.lostThisMonth > 0 ? "text-danger" : ""}>
+                <b className="font-semibold">{res.data.lostThisMonth}</b> lost
+                this month
+              </span>
+              <span className={res.data.oemResponsesPending > 0 ? "text-warning" : ""}>
+                <b className="font-semibold">
+                  {res.data.oemResponsesPending}
+                </b>{" "}
+                OEM responses pending
+              </span>
+              <span className={res.data.ordersAtRisk.length > 0 ? "text-danger" : ""}>
+                <b className="font-semibold">{res.data.ordersAtRisk.length}</b>{" "}
+                orders at risk
+              </span>
+              <span
+                className={res.data.documentsExpiring.length > 0 ? "text-warning" : ""}
+              >
+                <b className="font-semibold">
+                  {res.data.documentsExpiring.length}
+                </b>{" "}
+                documents expiring
+              </span>
+            </div>
           </div>
+
+          <section className="rounded-card border border-border bg-surface">
+            <div className="border-b border-border px-4 py-3 text-sm font-semibold">
+              Quotes awaiting a response
+            </div>
+            {res.data.quotesAwaitingResponse.length === 0 ? (
+              <p className="px-4 py-4 text-sm text-muted">None.</p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {res.data.quotesAwaitingResponse.map((q) => (
+                  <li key={q.id}>
+                    <Link
+                      href={`/requirements/${q.id}`}
+                      className="flex items-center justify-between px-4 py-3 text-sm hover:bg-page/60"
+                    >
+                      <span className="font-mono text-[13px] font-medium">
+                        {q.tender_ref}
+                      </span>
+                      <span className="text-muted">{q.customer}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="rounded-card border border-border bg-surface">
+            <div className="border-b border-border px-4 py-3 text-sm font-semibold">
+              Open orders &amp; state
+            </div>
+            {res.data.openOrders.length === 0 ? (
+              <p className="px-4 py-4 text-sm text-muted">None.</p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {res.data.openOrders.map((o) => (
+                  <li key={o.id}>
+                    <Link
+                      href={`/orders/${o.id}`}
+                      className="flex items-center justify-between px-4 py-3 text-sm hover:bg-page/60"
+                    >
+                      <span className="font-mono text-[13px] font-medium">
+                        {o.po_number}
+                      </span>
+                      <span className="text-muted">{o.stage}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
           <section className="rounded-card border border-border bg-surface">
             <div className="border-b border-border px-4 py-3 text-sm font-semibold">
