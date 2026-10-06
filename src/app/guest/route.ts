@@ -9,7 +9,7 @@ export function GET(request: Request) {
     path: "/",
     httpOnly: true,
     sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 7,
+    // session cookie: cleared when the browser closes
   });
   return res;
 }

@@ -54,7 +54,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (signedIn && path === "/login") {
+  // Only a real signed-in user is bounced away from the login page; a guest may
+  // still open it (to sign in), and a fresh visitor sees it by default.
+  if (user && path === "/login") {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/";
     redirectUrl.search = "";
