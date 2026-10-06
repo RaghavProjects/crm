@@ -1,0 +1,36 @@
+# --- dependencies / build output ---
+node_modules/
+.next/
+out/
+dist/
+build/
+.turbo/
+.vercel/
+
+# --- secrets: never commit ---
+.env
+.env.*
+!.env.example
+
+# --- OS / editor ---
+.DS_Store
+*.log
+
+# --- client commercial data: keep local, never commit ---
+Ram Prasad Assets/
+Ram Prasad Assets-*.zip
+ram-prasad*.pdf
+*.xls
+*.xlsx
+
+# --- separate product, own repo ---
+follow-up-board/
+.vercel
+
+# --- client-confidential planning docs: keep local, never commit to a public repo ---
+PRD.md
+TECH-STACK.md
+IMPLEMENTATION-PLAN.md
+UI-UX-REVIEW.md
+WORKBOOK-ANALYSIS.md
+WORKLOG.md
