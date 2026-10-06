@@ -183,6 +183,12 @@ export type OrderDetail = {
   tender_ref: string;
   customer: string;
   ordered_qty: number;
+  invoices: {
+    id: string;
+    invoice_number: string;
+    invoice_date: string | null;
+    amount: number | null;
+  }[];
 };
 
 export type OrderDetailResult =
@@ -194,7 +200,7 @@ export async function getOrder(id: string): Promise<OrderDetailResult> {
     const { data, error } = await supabaseAdmin()
       .from("orders")
       .select(
-        "id,requirement_id,po_number,po_date,delivery_deadline,oem_id,supplier_po,pdi_required,status,notes,oems(name),requirements(tender_ref,customer),quotes(quote_lines(quantity))",
+        "id,requirement_id,po_number,po_date,delivery_deadline,oem_id,supplier_po,pdi_required,status,notes,oems(name),requirements(tender_ref,customer),quotes(quote_lines(quantity)),order_invoices(id,invoice_number,invoice_date,amount)",
       )
       .eq("id", id)
       .single();
@@ -210,6 +216,20 @@ export async function getOrder(id: string): Promise<OrderDetailResult> {
     const quote = Array.isArray(data.quotes) ? data.quotes[0] : data.quotes;
     const ordered_qty = ((quote?.quote_lines ?? []) as { quantity: number | null }[])
       .reduce((s, l) => s + (Number(l.quantity) || 0), 0);
+
+    const invoices = (
+      (data.order_invoices ?? []) as {
+        id: string;
+        invoice_number: string;
+        invoice_date: string | null;
+        amount: number | null;
+      }[]
+    ).map((i) => ({
+      id: i.id,
+      invoice_number: i.invoice_number,
+      invoice_date: i.invoice_date,
+      amount: i.amount == null ? null : Number(i.amount),
+    }));
 
     return {
       ok: true,
@@ -227,6 +247,7 @@ export async function getOrder(id: string): Promise<OrderDetailResult> {
         tender_ref: req?.tender_ref ?? "—",
         customer: req?.customer ?? "—",
         ordered_qty,
+        invoices,
       },
     };
   } catch (e) {

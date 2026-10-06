@@ -305,6 +305,57 @@ create index if not exists order_pdi_order_id_idx on order_pdi (order_id);
 create index if not exists order_deliveries_order_id_idx
   on order_deliveries (order_id);
 
+-- Documents, payments and commission (Step 9) -------------------------------
+-- Document / compliance vault with expiry.
+create table if not exists documents (
+  id             uuid primary key default gen_random_uuid(),
+  doc_type       text not null,   -- RFQ, drawing, compliance cert, quotation, PO, invoice, PDI report …
+  title          text not null,
+  supplier       text,            -- OEM / customer / internal
+  doc_no         text,
+  issue_date     date,
+  expiry_date    date,
+  requirement_id uuid references requirements (id) on delete set null,
+  order_id       uuid references orders (id) on delete set null,
+  product        text,
+  notes          text,
+  created_at     timestamptz not null default now()
+);
+create index if not exists documents_expiry_date_idx on documents (expiry_date);
+
+-- Partial payments against an invoice.
+create table if not exists payments (
+  id          uuid primary key default gen_random_uuid(),
+  order_id    uuid not null references orders (id) on delete cascade,
+  invoice_id  uuid references order_invoices (id) on delete set null,
+  amount      numeric not null check (amount > 0),
+  paid_on     date,
+  mode        text,             -- RTGS / NEFT / wire …
+  reference   text,
+  notes       text,
+  created_at  timestamptz not null default now()
+);
+create index if not exists payments_order_id_idx on payments (order_id);
+
+-- Commission. PROVISIONAL (PRD Q2 open): the brief says commission is earned on
+-- an OEM-payment milestone. This models that, but the exact milestone/flow must
+-- be confirmed with the client before it is trusted.
+create table if not exists commission_entries (
+  id                uuid primary key default gen_random_uuid(),
+  order_id          uuid not null references orders (id) on delete cascade,
+  oem_id            uuid references oems (id) on delete set null,
+  base_amount       numeric not null check (base_amount >= 0),
+  commission_pct    numeric,
+  commission_amount numeric,
+  milestone         text not null default 'oem_payment_received',
+  status            text not null default 'pending',  -- pending | earned | paid
+  earned_on         date,
+  notes             text,
+  created_at        timestamptz not null default now()
+);
+create index if not exists commission_entries_order_id_idx
+  on commission_entries (order_id);
+
 -- Row Level Security: authenticated users may work; anon gets nothing.
 -- The app's server side uses the secret key, which bypasses RLS; this protects
 -- the publishable key if it is ever used from a browser.
@@ -315,7 +366,8 @@ begin
     'requirements','requirement_lines','oems','requirement_oems',
     'line_coverage','profiles','audit_events','requirement_status',
     'quotes','quote_lines','orders','order_invoices',
-    'order_fulfilment_steps','order_pdi','order_deliveries'
+    'order_fulfilment_steps','order_pdi','order_deliveries',
+    'documents','payments','commission_entries'
   ])
   loop
     execute format('alter table %I enable row level security', t);

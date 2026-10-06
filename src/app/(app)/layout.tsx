@@ -11,7 +11,7 @@ const nav = [
   { label: "Orders", href: "#" },
   { label: "Fulfilment", href: "#" },
   { label: "Payments", href: "#" },
-  { label: "Documents", href: "#" },
+  { label: "Documents", href: "/documents" },
   { label: "Dashboard", href: "#" },
   { label: "Audit", href: "/audit" },
 ];

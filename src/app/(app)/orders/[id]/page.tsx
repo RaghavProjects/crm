@@ -1,7 +1,17 @@
 import Link from "next/link";
 import { getOrder } from "@/lib/orders";
 import { listFulfilment } from "@/lib/fulfilment";
-import { updateStepAction, addPdiAction, addDeliveryAction } from "./actions";
+import { listPayments, listCommission } from "@/lib/payments";
+import { listOemOptions } from "@/lib/oems";
+import {
+  updateStepAction,
+  addPdiAction,
+  addDeliveryAction,
+  addOrderInvoiceAction,
+  addPaymentAction,
+  createCommissionAction,
+  setCommissionStatusAction,
+} from "./actions";
 
 const input =
   "w-full rounded-control border border-border bg-surface px-2 py-1.5 text-sm outline-none focus:border-primary";
@@ -52,7 +62,17 @@ export default async function OrderDetailPage({
 
   const o = res.data;
   const ful = await listFulfilment(id);
+  const payments = await listPayments(id);
+  const commission = await listCommission(id);
+  const oemOptions = await listOemOptions();
   const f = ful.ok ? ful.data : null;
+
+  const paidByInvoice = new Map<string, number>();
+  for (const p of payments.ok ? payments.rows : []) {
+    if (p.invoice_id) {
+      paidByInvoice.set(p.invoice_id, (paidByInvoice.get(p.invoice_id) ?? 0) + p.amount);
+    }
+  }
   const delivered = f?.deliveredQty ?? 0;
   const outstanding = Math.max(0, o.ordered_qty - delivered);
   const latestPdi = f?.pdi[0] ?? null;
@@ -292,6 +312,192 @@ export default async function OrderDetailPage({
             </div>
           </div>
         )}
+      </section>
+
+      <section className="rounded-card border border-border bg-surface">
+        <div className="border-b border-border px-4 py-3 text-sm font-semibold">
+          Payments &amp; commission
+        </div>
+
+        {!payments.ok && (
+          <p className="px-4 py-4 text-sm text-[#b91c1c]">
+            Could not load payments: {payments.error}
+          </p>
+        )}
+
+        <div className="border-b border-border p-4">
+          <h3 className="mb-3 text-sm font-semibold">Invoices &amp; receipts</h3>
+          <form
+            action={addOrderInvoiceAction}
+            className="mb-4 grid gap-2 sm:grid-cols-5"
+          >
+            <input type="hidden" name="order_id" value={o.id} />
+            <input
+              aria-label="Invoice number"
+              name="invoice_number"
+              placeholder="Invoice number *"
+              required
+              className={input}
+            />
+            <input aria-label="Invoice date" name="invoice_date" type="date" className={input} />
+            <input aria-label="Amount" name="amount" placeholder="Amount" inputMode="decimal" className={input} />
+            <input aria-label="Invoice notes" name="notes" placeholder="Notes" className={input} />
+            <button
+              type="submit"
+              className="rounded-control border border-border px-3 py-2 text-sm font-medium hover:bg-page"
+            >
+              Add invoice
+            </button>
+          </form>
+          {o.invoices.length === 0 ? (
+            <p className="text-sm text-muted">No invoices on this PO yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {o.invoices.map((inv) => {
+                const paid = paidByInvoice.get(inv.id) ?? 0;
+                const bal = (inv.amount ?? 0) - paid;
+                return (
+                  <div key={inv.id} className="rounded-card border border-border p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                      <span className="font-medium">{inv.invoice_number}</span>
+                      <span className="tabular-nums text-xs text-muted">
+                        amount {num(inv.amount)} · paid {num(paid)} · balance{" "}
+                        <span className={bal > 0 ? "text-danger" : "text-[#15803d]"}>
+                          {num(bal)}
+                        </span>
+                      </span>
+                    </div>
+                    <form
+                      action={addPaymentAction}
+                      className="mt-2 grid gap-2 sm:grid-cols-5"
+                    >
+                      <input type="hidden" name="order_id" value={o.id} />
+                      <input type="hidden" name="invoice_id" value={inv.id} />
+                      <input
+                        aria-label="Amount"
+                        name="amount"
+                        placeholder="Amount *"
+                        inputMode="decimal"
+                        className={input}
+                      />
+                      <input aria-label="Paid on" name="paid_on" type="date" className={input} />
+                      <input aria-label="Mode" name="mode" placeholder="RTGS/NEFT" className={input} />
+                      <input aria-label="Reference" name="reference" placeholder="Reference" className={input} />
+                      <button
+                        type="submit"
+                        className="rounded-control border border-border px-3 py-2 text-sm font-medium hover:bg-page"
+                      >
+                        Add payment
+                      </button>
+                    </form>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="p-4">
+          <h3 className="mb-1 text-sm font-semibold">Commission</h3>
+          <p className="mb-3 text-xs text-muted">
+            Provisional model — earned on an OEM-payment milestone (Q2 to confirm
+            with the client).
+          </p>
+
+          <form
+            action={createCommissionAction}
+            className="grid gap-2 sm:grid-cols-5"
+          >
+            <input type="hidden" name="order_id" value={o.id} />
+            <select aria-label="OEM" name="oem_id" defaultValue="" className={input}>
+              <option value="">OEM…</option>
+              {oemOptions.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.name}
+                </option>
+              ))}
+            </select>
+            <input
+              aria-label="Base amount"
+              name="base_amount"
+              placeholder="Base amount *"
+              inputMode="decimal"
+              className={input}
+            />
+            <input
+              aria-label="Commission percent"
+              name="commission_pct"
+              placeholder="Commission %"
+              inputMode="decimal"
+              className={input}
+            />
+            <input aria-label="Notes" name="notes" placeholder="Notes" className={input} />
+            <button
+              type="submit"
+              className="rounded-control bg-primary px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+            >
+              Add commission
+            </button>
+          </form>
+
+          {commission.ok && commission.rows.length > 0 && (
+            <div className="mt-3 divide-y divide-border">
+              {commission.rows.map((c) => (
+                <div
+                  key={c.id}
+                  className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <span>{c.oem_name ?? "—"}</span>
+                    <span className="tabular-nums text-xs text-muted">
+                      base {num(c.base_amount)} · {c.commission_pct ?? "—"}% · ₹
+                      {num(c.commission_amount ?? 0)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${
+                        c.status === "paid"
+                          ? "bg-success/15 text-[#15803d]"
+                          : c.status === "earned"
+                            ? "bg-primary/10 text-primary"
+                            : "bg-border/60 text-muted"
+                      }`}
+                    >
+                      {c.status}
+                    </span>
+                    <form
+                      action={setCommissionStatusAction}
+                      className="flex items-center gap-1"
+                    >
+                      <input type="hidden" name="order_id" value={o.id} />
+                      <input type="hidden" name="commission_id" value={c.id} />
+                      <select
+                        aria-label="Commission status"
+                        name="status"
+                        defaultValue={c.status}
+                        className="rounded-control border border-border bg-surface px-2 py-1 text-xs"
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="earned">Earned</option>
+                        <option value="paid">Paid</option>
+                      </select>
+                      <button
+                        type="submit"
+                        className="rounded-control border border-border px-2 py-1 text-xs font-medium hover:bg-page"
+                      >
+                        Set
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {commission.ok && commission.rows.length === 0 && (
+            <p className="mt-3 text-sm text-muted">No commission recorded.</p>
+          )}
+        </div>
       </section>
     </div>
   );
