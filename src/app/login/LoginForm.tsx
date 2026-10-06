@@ -63,7 +63,7 @@ export function LoginForm({ next }: { next?: string }) {
           className={input}
         />
       </div>
-      {error && <p className="text-sm text-[#b91c1c]">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
       <button
         type="submit"
         disabled={busy}

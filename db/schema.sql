@@ -360,6 +360,45 @@ create index if not exists commission_entries_order_id_idx
 alter table requirements add column if not exists loss_reason text;
 alter table requirements add column if not exists loss_notes text;
 
+-- Customers (master) --------------------------------------------------------
+create table if not exists customers (
+  id             uuid primary key default gen_random_uuid(),
+  name           text not null,
+  location       text,
+  spoc           text,
+  mobile         text,
+  email          text,
+  gst_no         text,
+  items_approved text,
+  product_code   text,
+  renewal_due    date,
+  notes          text,
+  created_at     timestamptz not null default now()
+);
+
+-- Approvals / compliance certificates (master) ------------------------------
+create table if not exists approvals (
+  id                 uuid primary key default gen_random_uuid(),
+  oem                text,
+  authority          text,          -- CEMILAC, LCSO, RCMA…
+  location           text,
+  certificate_no     text,
+  certificate_date   date,
+  valid_till         date,
+  extended_till_1    date,
+  extended_till_2    date,
+  items_approved     text,
+  product_code       text,
+  renewal_due        date,
+  renewal_no         text,
+  renewal_date       date,
+  renewal_valid_till date,
+  remarks            text,
+  created_at         timestamptz not null default now()
+);
+
+create index if not exists approvals_valid_till_idx on approvals (valid_till);
+
 -- Row Level Security: authenticated users may work; anon gets nothing.
 -- The app's server side uses the secret key, which bypasses RLS; this protects
 -- the publishable key if it is ever used from a browser.
@@ -371,7 +410,8 @@ begin
     'line_coverage','profiles','audit_events','requirement_status',
     'quotes','quote_lines','orders','order_invoices',
     'order_fulfilment_steps','order_pdi','order_deliveries',
-    'documents','payments','commission_entries'
+    'documents','payments','commission_entries',
+    'customers','approvals'
   ])
   loop
     execute format('alter table %I enable row level security', t);

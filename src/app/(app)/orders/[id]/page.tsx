@@ -18,9 +18,9 @@ const input =
 
 const pdiStyle: Record<string, string> = {
   pending: "bg-border/60 text-muted",
-  passed: "bg-success/15 text-[#15803d]",
-  failed: "bg-danger/15 text-[#b91c1c]",
-  held: "bg-warning/15 text-[#b45309]",
+  passed: "bg-success/15 text-success",
+  failed: "bg-danger/15 text-danger",
+  held: "bg-warning/15 text-warning",
 };
 
 function fmt(d: string | null) {
@@ -53,7 +53,7 @@ export default async function OrderDetailPage({
         <Link href="/" className="text-xs text-muted hover:text-ink">
           ← Requirements
         </Link>
-        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-[#b91c1c]">
+        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
           Could not load order: {res.error}
         </div>
       </div>
@@ -96,7 +96,7 @@ export default async function OrderDetailPage({
             PO {o.po_number}
           </h1>
           {o.pdi_required && (
-            <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-medium text-[#b45309]">
+            <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-medium text-warning">
               PDI required
             </span>
           )}
@@ -113,24 +113,24 @@ export default async function OrderDetailPage({
       </div>
 
       {sp.error && (
-        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-[#b91c1c]">
+        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
           {sp.error}
         </div>
       )}
       {sp.ok && (
-        <div className="rounded-card border border-success/30 bg-success/10 p-3 text-sm text-[#15803d]">
+        <div className="rounded-card border border-success/30 bg-success/10 p-3 text-sm text-success">
           Saved.
         </div>
       )}
 
       {atRisk && (
-        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-[#b91c1c]">
+        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
           Delivery at risk — expected {fmt(deliveredStep?.expected_date ?? null)}{" "}
           is after the committed deadline {fmt(o.delivery_deadline)}.
         </div>
       )}
       {f?.pdiBlocked && (
-        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-[#b91c1c]">
+        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
           Dispatch is blocked — the latest PDI was failed or held.
         </div>
       )}
@@ -161,7 +161,7 @@ export default async function OrderDetailPage({
           <span className="text-xs text-muted">Owner and expected date per step</span>
         </div>
         {!ful.ok && (
-          <p className="px-4 py-4 text-sm text-[#b91c1c]">
+          <p className="px-4 py-4 text-sm text-danger">
             Could not load fulfilment: {ful.error}
           </p>
         )}
@@ -178,7 +178,7 @@ export default async function OrderDetailPage({
                 <div className="text-sm">
                   <div className="font-medium">{s.label}</div>
                   {s.completed_on && (
-                    <div className="text-[11px] text-[#15803d]">
+                    <div className="text-[11px] text-success">
                       done {fmt(s.completed_on)}
                     </div>
                   )}
@@ -306,7 +306,7 @@ export default async function OrderDetailPage({
             ))}
             <div className="flex items-center justify-between px-4 py-3 text-sm">
               <span className="font-medium">Outstanding balance</span>
-              <span className={`tabular-nums font-semibold ${outstanding > 0 ? "text-danger" : "text-[#15803d]"}`}>
+              <span className={`tabular-nums font-semibold ${outstanding > 0 ? "text-danger" : "text-success"}`}>
                 {num(outstanding)}
               </span>
             </div>
@@ -320,7 +320,7 @@ export default async function OrderDetailPage({
         </div>
 
         {!payments.ok && (
-          <p className="px-4 py-4 text-sm text-[#b91c1c]">
+          <p className="px-4 py-4 text-sm text-danger">
             Could not load payments: {payments.error}
           </p>
         )}
@@ -362,7 +362,7 @@ export default async function OrderDetailPage({
                       <span className="font-medium">{inv.invoice_number}</span>
                       <span className="tabular-nums text-xs text-muted">
                         amount {num(inv.amount)} · paid {num(paid)} · balance{" "}
-                        <span className={bal > 0 ? "text-danger" : "text-[#15803d]"}>
+                        <span className={bal > 0 ? "text-danger" : "text-success"}>
                           {num(bal)}
                         </span>
                       </span>
@@ -458,7 +458,7 @@ export default async function OrderDetailPage({
                     <span
                       className={`rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${
                         c.status === "paid"
-                          ? "bg-success/15 text-[#15803d]"
+                          ? "bg-success/15 text-success"
                           : c.status === "earned"
                             ? "bg-primary/10 text-primary"
                             : "bg-border/60 text-muted"

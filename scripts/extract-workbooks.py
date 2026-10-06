@@ -70,6 +70,11 @@ df = read(f"{ASSETS}/8. Master List of Customers.xls", "Master Customer")
 h = find_header(df)
 data["customers"] = rows_with_header(df, h, "Customer")
 
+# Approvals master
+df = read(f"{ASSETS}/6. Master List of Approvals).xls", "Master APPL")
+h = find_header(df)
+data["approvals"] = rows_with_header(df, h, "OEM")
+
 with open("/Users/lakshmi/Downloads/CRM/scripts/workbook-data.json", "w") as f:
     json.dump(data, f, indent=1)
 

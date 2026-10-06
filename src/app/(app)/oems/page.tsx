@@ -30,13 +30,13 @@ export default async function OemsPage({
       </div>
 
       {sp.created && (
-        <div className="rounded-card border border-success/30 bg-success/10 p-3 text-sm text-[#15803d]">
+        <div className="rounded-card border border-success/30 bg-success/10 p-3 text-sm text-success">
           OEM saved.
         </div>
       )}
 
       {!res.ok && (
-        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-[#b91c1c]">
+        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
           Could not load OEMs: {res.error}
         </div>
       )}
@@ -86,7 +86,7 @@ export default async function OemsPage({
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
                           o.approved
-                            ? "bg-success/15 text-[#15803d]"
+                            ? "bg-success/15 text-success"
                             : "bg-border/60 text-muted"
                         }`}
                       >
@@ -115,7 +115,7 @@ export default async function OemsPage({
                   <span
                     className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
                       o.approved
-                        ? "bg-success/15 text-[#15803d]"
+                        ? "bg-success/15 text-success"
                         : "bg-border/60 text-muted"
                     }`}
                   >

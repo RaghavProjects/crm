@@ -23,7 +23,7 @@ export default async function NewRequirementPage({
       </div>
 
       {sp.error && (
-        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-[#b91c1c]">
+        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
           {sp.error}
         </div>
       )}

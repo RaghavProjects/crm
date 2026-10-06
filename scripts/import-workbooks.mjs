@@ -1,4 +1,4 @@
-// Import the shared workbook rows into Supabase, replacing the test data.
+// Import the shared workbook rows into Supabase, replacing the demo data.
 //   node scripts/import-workbooks.mjs
 // Reads scripts/workbook-data.json (produced by scripts/extract-workbooks.py).
 
@@ -34,51 +34,78 @@ async function rest(method, qs, body, prefer) {
 
 const isDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v ?? "");
 const num = (v) => (v && !Number.isNaN(Number(v)) ? Number(v) : null);
+const d = (v) => (isDate(v) ? v : null);
 
 const data = JSON.parse(
   readFileSync(fileURLToPath(new URL("./workbook-data.json", import.meta.url)), "utf8"),
 );
 
-const before = await Promise.all([
-  rest("GET", "requirements?select=id"),
-  rest("GET", "oems?select=id"),
-  rest("GET", "orders?select=id"),
-]);
-console.log(
-  `before: requirements=${before[0].length} oems=${before[1].length} orders=${before[2].length}`,
-);
+// Clear existing demo data (cascades lines/quotes/orders/invoices…).
+for (const t of ["requirements", "oems", "documents", "customers", "approvals"]) {
+  await rest("DELETE", `${t}?id=not.is.null`);
+}
+console.log("cleared requirements, oems, documents, customers, approvals");
 
-// Clear existing (test) rows. Deletes cascade to lines/quotes/orders/invoices…
-await rest("DELETE", "requirements?id=not.is.null");
-await rest("DELETE", "oems?id=not.is.null");
-await rest("DELETE", "documents?id=not.is.null");
-console.log("cleared requirements, oems, documents");
-
-// --- OEMs: master rows + transactional names -------------------------------
+// --- OEMs: master rows + names seen in transactional sheets -----------------
 const oemNames = new Set();
 for (const o of data.oems) if (o.OEM) oemNames.add(o.OEM);
 for (const e of data.enquiries) if (e.OEM) oemNames.add(e.OEM);
 for (const p of data.pos) if (p.OEM) oemNames.add(p.OEM);
-
-const oemRows = [...oemNames].map((name) => {
-  const master = data.oems.find((o) => o.OEM === name);
-  return {
-    name,
-    location: master?.Loaction ?? null,
-    vendor_code: master?.["Vendor Code"] ?? null,
-    products: master?.["ITEMS APPROVED"] ?? null,
-    approved: Boolean(master),
-  };
-});
-const oems = oemRows.length
-  ? await rest("POST", "oems?select=id,name", oemRows, "return=representation")
+const oems = oemNames.size
+  ? await rest(
+      "POST",
+      "oems?select=id,name",
+      [...oemNames].map((name) => {
+        const m = data.oems.find((o) => o.OEM === name);
+        return {
+          name,
+          location: m?.Loaction ?? null,
+          vendor_code: m?.["Vendor Code"] ?? null,
+          products: m?.["ITEMS APPROVED"] ?? null,
+          approved: Boolean(m),
+        };
+      }),
+      "return=representation",
+    )
   : [];
 const oemId = new Map(oems.map((o) => [o.name, o.id]));
 console.log(`oems inserted: ${oems.length}`);
 
-// --- Enquiries -> requirements + line --------------------------------------
+// --- Customers master ------------------------------------------------------
+if (data.customers?.length) {
+  await rest("POST", "customers", data.customers.map((c) => ({
+    name: c.Customer || "—",
+    location: c.Loaction || null,
+    gst_no: c["GST No."] || null,
+    items_approved: c["ITEMS APPROVED"] || null,
+    product_code: c["PRODUCT CODE"] || null,
+    renewal_due: d(c["TO APPLY FOR RENEWAL"]),
+  })));
+  console.log(`customers inserted: ${data.customers.length}`);
+}
+
+// --- Approvals / compliance master -----------------------------------------
+if (data.approvals?.length) {
+  await rest("POST", "approvals", data.approvals.map((a) => ({
+    oem: a.OEM || null,
+    authority: a["APP AUTH"] || null,
+    location: a.LOC || null,
+    certificate_no: a["CERTIFICATE NO."] || null,
+    certificate_date: d(a["CER DT"]),
+    valid_till: d(a["VALID TILL"]),
+    items_approved: a["ITEMS APPROVED"] || null,
+    product_code: a["PRODUCT CODE"] || null,
+    renewal_due: d(a["TO APPLY FOR RENEWAL"]),
+    remarks: a.REMARKS || null,
+  })));
+  console.log(`approvals inserted: ${data.approvals.length}`);
+}
+
+// --- Enquiries -> requirements + line + sourcing link ----------------------
+const reqByTender = new Map();
 let reqCount = 0;
 let lineCount = 0;
+let sourcingCount = 0;
 for (const e of data.enquiries) {
   const [req] = await rest(
     "POST",
@@ -88,13 +115,14 @@ for (const e of data.enquiries) {
       customer: e.CUS || "—",
       project: e.Project || null,
       source: e.SOURCE || null,
-      submission_deadline: isDate(e["DUE ON"]) ? e["DUE ON"] : null,
+      submission_deadline: d(e["DUE ON"]),
       status: e["QTN REF"] ? "quoted" : "received",
       notes: e.Remarks || null,
     },
     "return=representation",
   );
   reqCount++;
+  reqByTender.set(e["ENQ No."], req.id);
   await rest("POST", "requirement_lines", {
     requirement_id: req.id,
     part_description: e.PRODUCT || "—",
@@ -104,13 +132,44 @@ for (const e of data.enquiries) {
     sort_order: 0,
   });
   lineCount++;
+  if (e.OEM && oemId.get(e.OEM)) {
+    await rest("POST", "requirement_oems", {
+      requirement_id: req.id,
+      oem_id: oemId.get(e.OEM),
+      status: "requested",
+      requested_on: new Date().toISOString().slice(0, 10),
+      request_notes: e.SOURCE ? `Source: ${e.SOURCE}` : null,
+    });
+    sourcingCount++;
+  }
 }
 
-// --- POs -> requirement (won) + quote (approved) + order -------------------
+// --- Quotations sheet -> quotes for the enquiry requirements ---------------
+let quoteCount = 0;
+for (const q of data.quotations ?? []) {
+  const requirementId = reqByTender.get(q["Enq No."]);
+  if (!requirementId) continue;
+  const [quote] = await rest(
+    "POST",
+    "quotes?select=id",
+    { requirement_id: requirementId, version: 1, status: "approved" },
+    "return=representation",
+  );
+  quoteCount++;
+  await rest("POST", "quote_lines", {
+    quote_id: quote.id,
+    description: q.PRODUCT || "—",
+    quantity: num(q.Qty),
+    oem_price: num(q["1st Rate"]) ?? 0,
+    recommended_price: num(q["Price after PNC"]) ?? num(q["1st Rate"]) ?? 0,
+    sort_order: 0,
+  });
+}
+
+// --- POs -> requirement (won) + quote + order ------------------------------
 const posRows = data.pos.filter(
   (p) => p.PRODUCT && p.CUS && p["PO No"] && p["PO No"] !== "0",
 );
-let quoteCount = 0;
 let orderCount = 0;
 for (const p of posRows) {
   const [req] = await rest(
@@ -120,7 +179,7 @@ for (const p of posRows) {
       tender_ref: p["QTN REF"] || p["PO No"],
       customer: p.CUS,
       source: p.SOURCE || null,
-      submission_deadline: isDate(p["DELY DUE ON"]) ? p["DELY DUE ON"] : null,
+      submission_deadline: d(p["DELY DUE ON"]),
       status: "won",
       notes: p.Remarks || null,
     },
@@ -137,7 +196,6 @@ for (const p of posRows) {
   lineCount++;
 
   const price = num(p["Price Rs/Ea"]);
-  const qty = num(p["Qty. (No.)"]);
   const [quote] = await rest(
     "POST",
     "quotes?select=id",
@@ -149,7 +207,7 @@ for (const p of posRows) {
     await rest("POST", "quote_lines", {
       quote_id: quote.id,
       description: p.PRODUCT,
-      quantity: qty,
+      quantity: num(p["Qty. (No.)"]),
       oem_price: price,
       recommended_price: price,
       sort_order: 0,
@@ -160,8 +218,8 @@ for (const p of posRows) {
     requirement_id: req.id,
     quote_id: quote.id,
     po_number: p["PO No"],
-    po_date: isDate(p["PO  DATE"]) ? p["PO  DATE"] : null,
-    delivery_deadline: isDate(p["DELY DUE ON"]) ? p["DELY DUE ON"] : null,
+    po_date: d(p["PO  DATE"]),
+    delivery_deadline: d(p["DELY DUE ON"]),
     oem_id: p.OEM && oemId.get(p.OEM) ? oemId.get(p.OEM) : null,
     status: "open",
     notes: p.Remarks || null,
@@ -169,15 +227,6 @@ for (const p of posRows) {
   orderCount++;
 }
 
-const after = await Promise.all([
-  rest("GET", "requirements?select=id"),
-  rest("GET", "oems?select=id"),
-  rest("GET", "quotes?select=id"),
-  rest("GET", "orders?select=id"),
-]);
 console.log(
-  `after: requirements=${after[0].length} oems=${after[1].length} quotes=${after[2].length} orders=${after[3].length}`,
-);
-console.log(
-  `inserted: requirements=${reqCount} lines=${lineCount} quotes=${quoteCount} orders=${orderCount}`,
+  `inserted: requirements=${reqCount} lines=${lineCount} quotes=${quoteCount} orders=${orderCount} sourcing=${sourcingCount}`,
 );

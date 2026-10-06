@@ -27,19 +27,19 @@ const label = "block text-xs font-medium text-muted";
 
 const reqStatusStyle: Record<string, string> = {
   received: "bg-border/60 text-muted",
-  qualifying: "bg-warning/15 text-[#b45309]",
+  qualifying: "bg-warning/15 text-warning",
   quoted: "bg-primary/10 text-primary",
   submitted: "bg-primary/10 text-primary",
-  won: "bg-success/15 text-[#15803d]",
-  lost: "bg-danger/15 text-[#b91c1c]",
+  won: "bg-success/15 text-success",
+  lost: "bg-danger/15 text-danger",
   cancelled: "bg-border/60 text-muted",
 };
 
 const sourcingStyle: Record<string, string> = {
   shortlisted: "bg-border/60 text-muted",
   requested: "bg-primary/10 text-primary",
-  responded: "bg-success/15 text-[#15803d]",
-  declined: "bg-danger/15 text-[#b91c1c]",
+  responded: "bg-success/15 text-success",
+  declined: "bg-danger/15 text-danger",
 };
 
 function Badge({ value, map }: { value: string; map: Record<string, string> }) {
@@ -85,7 +85,7 @@ export default async function RequirementDetailPage({
         <Link href="/" className="text-xs text-muted hover:text-ink">
           ← Requirements
         </Link>
-        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-[#b91c1c]">
+        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
           Could not load requirement: {res.error}
         </div>
       </div>
@@ -203,12 +203,12 @@ export default async function RequirementDetailPage({
       </div>
 
       {sp.error && (
-        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-[#b91c1c]">
+        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
           {sp.error}
         </div>
       )}
       {sp.ok && (
-        <div className="rounded-card border border-success/30 bg-success/10 p-3 text-sm text-[#15803d]">
+        <div className="rounded-card border border-success/30 bg-success/10 p-3 text-sm text-success">
           Saved.
         </div>
       )}
@@ -250,7 +250,7 @@ export default async function RequirementDetailPage({
                       </td>
                       <td
                         className={`px-4 py-3 text-right tabular-nums ${
-                          u > 0 ? "font-medium text-danger" : "text-[#15803d]"
+                          u > 0 ? "font-medium text-danger" : "text-success"
                         }`}
                       >
                         {u}
@@ -298,7 +298,7 @@ export default async function RequirementDetailPage({
 
         <div className="border-b border-border px-4 py-2 text-sm">
           {covered ? (
-            <span className="font-medium text-[#15803d]">
+            <span className="font-medium text-success">
               Fully covered by firm commitments.
             </span>
           ) : required === 0 ? (
@@ -398,7 +398,7 @@ export default async function RequirementDetailPage({
         )}
 
         {!coverage.ok && (
-          <p className="px-4 py-4 text-sm text-[#b91c1c]">
+          <p className="px-4 py-4 text-sm text-danger">
             Could not load coverage: {coverage.error}
           </p>
         )}
@@ -423,8 +423,8 @@ export default async function RequirementDetailPage({
                     <Badge
                       value={c.kind}
                       map={{
-                        firm: "bg-success/15 text-[#15803d]",
-                        availability: "bg-warning/15 text-[#b45309]",
+                        firm: "bg-success/15 text-success",
+                        availability: "bg-warning/15 text-warning",
                       }}
                     />
                     <span className="text-muted">
@@ -463,7 +463,7 @@ export default async function RequirementDetailPage({
         </div>
 
         {!quotes.ok && (
-          <p className="px-4 py-4 text-sm text-[#b91c1c]">
+          <p className="px-4 py-4 text-sm text-danger">
             Could not load quotes: {quotes.error}
           </p>
         )}
@@ -486,7 +486,7 @@ export default async function RequirementDetailPage({
                         value={q.status}
                         map={{
                           draft: "bg-border/60 text-muted",
-                          approved: "bg-success/15 text-[#15803d]",
+                          approved: "bg-success/15 text-success",
                         }}
                       />
                     </div>
@@ -525,7 +525,7 @@ export default async function RequirementDetailPage({
                     ))}
                   </ul>
                   {q.approved_by && (
-                    <p className="mt-1 text-xs text-[#15803d]">
+                    <p className="mt-1 text-xs text-success">
                       Approved by {q.approved_by}
                     </p>
                   )}
@@ -604,7 +604,7 @@ export default async function RequirementDetailPage({
         </div>
 
         {!orders.ok && (
-          <p className="px-4 py-4 text-sm text-[#b91c1c]">
+          <p className="px-4 py-4 text-sm text-danger">
             Could not load orders: {orders.error}
           </p>
         )}
@@ -713,7 +713,7 @@ export default async function RequirementDetailPage({
                       value={o.status}
                       map={{
                         open: "bg-primary/10 text-primary",
-                        completed: "bg-success/15 text-[#15803d]",
+                        completed: "bg-success/15 text-success",
                         cancelled: "bg-border/60 text-muted",
                       }}
                     />
@@ -828,7 +828,7 @@ export default async function RequirementDetailPage({
         </form>
 
         {!sourcing.ok && (
-          <p className="px-4 py-4 text-sm text-[#b91c1c]">
+          <p className="px-4 py-4 text-sm text-danger">
             Could not load sourcing: {sourcing.error}
           </p>
         )}

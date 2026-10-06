@@ -14,15 +14,23 @@ export default async function AuditPage() {
 
   return (
     <div className="mx-auto max-w-[1100px] space-y-6">
-      <div>
-        <h1 className="text-[26px] font-semibold tracking-tight">Audit trail</h1>
-        <p className="mt-1 text-sm text-muted">
-          Append-only record of material changes — what, who, when.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-[26px] font-semibold tracking-tight">Audit trail</h1>
+          <p className="mt-1 text-sm text-muted">
+            Append-only record of material changes — what, who, when.
+          </p>
+        </div>
+        <a
+          href="/export"
+          className="rounded-control border border-border px-3 py-2 text-sm font-medium hover:bg-page"
+        >
+          Download full export
+        </a>
       </div>
 
       {!res.ok && (
-        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-[#b91c1c]">
+        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
           Could not load audit trail: {res.error}
         </div>
       )}

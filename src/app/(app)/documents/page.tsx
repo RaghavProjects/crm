@@ -20,9 +20,9 @@ const DOC_TYPES = [
 
 const expiryStyle: Record<string, string> = {
   none: "bg-border/60 text-muted",
-  ok: "bg-success/15 text-[#15803d]",
-  soon: "bg-warning/15 text-[#b45309]",
-  expired: "bg-danger/15 text-[#b91c1c]",
+  ok: "bg-success/15 text-success",
+  soon: "bg-warning/15 text-warning",
+  expired: "bg-danger/15 text-danger",
 };
 const expiryLabel: Record<string, string> = {
   none: "No expiry",
@@ -62,12 +62,12 @@ export default async function DocumentsPage({
       </div>
 
       {sp.error && (
-        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-[#b91c1c]">
+        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
           {sp.error}
         </div>
       )}
       {sp.ok && (
-        <div className="rounded-card border border-success/30 bg-success/10 p-3 text-sm text-[#15803d]">
+        <div className="rounded-card border border-success/30 bg-success/10 p-3 text-sm text-success">
           Document saved.
         </div>
       )}
@@ -138,7 +138,7 @@ export default async function DocumentsPage({
       </section>
 
       {!res.ok && (
-        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-[#b91c1c]">
+        <div className="rounded-card border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
           Could not load documents: {res.error}
         </div>
       )}

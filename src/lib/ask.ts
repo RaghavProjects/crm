@@ -1,4 +1,6 @@
 import { supabaseAdmin } from "./supabase/admin";
+import { getDashboard } from "./dashboard";
+import { plural } from "./format";
 
 export type AskRow = { label: string; href?: string };
 export type AskResult =
@@ -21,6 +23,72 @@ export async function askQuestion(input: string): Promise<AskResult> {
   const db = supabaseAdmin();
 
   try {
+    if (/attention|needs my attention|what needs|pipeline/.test(q)) {
+      const d = await getDashboard();
+      if (!d.ok) return { answered: false, message: "Could not read the data." };
+      const dueSoon = d.data.openOrders.filter((o) => o.health === "at_risk").length;
+      const rows: AskRow[] = [];
+      if (d.data.ordersAtRisk.length)
+        rows.push({
+          label: `${d.data.ordersAtRisk.length} orders at delivery risk`,
+          href: "/fulfilment",
+        });
+      if (dueSoon)
+        rows.push({ label: `${dueSoon} deliveries due within 7 days`, href: "/fulfilment" });
+      if (d.data.quotesAwaitingResponse.length)
+        rows.push({
+          label: `${d.data.quotesAwaitingResponse.length} quotations awaiting a response`,
+          href: "/quotations",
+        });
+      if (d.data.payments.overdueCount)
+        rows.push({
+          label: `${d.data.payments.overdueCount} overdue payments`,
+          href: "/payments",
+        });
+      if (d.data.documentsExpiring.length)
+        rows.push({
+          label: `${d.data.documentsExpiring.length} documents expiring within 90 days`,
+          href: "/documents",
+        });
+      const total =
+        d.data.ordersAtRisk.length +
+        dueSoon +
+        d.data.quotesAwaitingResponse.length +
+        d.data.payments.overdueCount;
+      return {
+        answered: true,
+        answer:
+          total === 0
+            ? "Nothing needs your attention today."
+            : `${plural(total, "item")} require attention today.`,
+        rows,
+      };
+    }
+
+    if (/due this week|due soon|due within/.test(q)) {
+      const { data } = await db
+        .from("orders")
+        .select("id,po_number,status,delivery_deadline");
+      const soon = (data ?? []).filter((o) => {
+        if (o.status !== "open" || !o.delivery_deadline) return false;
+        const days = Math.round(
+          (new Date(`${o.delivery_deadline}T00:00:00Z`).getTime() - Date.now()) / 86_400_000,
+        );
+        return days >= 0 && days <= 7;
+      });
+      return {
+        answered: true,
+        answer:
+          soon.length === 0
+            ? "No open orders are due within 7 days."
+            : `${plural(soon.length, "open order")} due within 7 days.`,
+        rows: soon.map((o) => ({
+          label: `PO ${o.po_number} · due ${o.delivery_deadline}`,
+          href: `/orders/${o.id}`,
+        })),
+      };
+    }
+
     if (/risk|late|overdue|delay/.test(q) && /order|deliver/.test(q)) {
       const { data } = await db
         .from("orders")
@@ -34,7 +102,7 @@ export async function askQuestion(input: string): Promise<AskResult> {
         answer:
           risk.length === 0
             ? "No open orders are past their delivery deadline."
-            : `${risk.length} open order(s) are past or at their delivery deadline.`,
+            : `${plural(risk.length, "open order")} past or at their delivery deadline.`,
         rows: risk.map((o) => ({
           label: `PO ${o.po_number} · due ${o.delivery_deadline}`,
           href: `/orders/${o.id}`,
@@ -54,7 +122,7 @@ export async function askQuestion(input: string): Promise<AskResult> {
         answer:
           rows.length === 0
             ? "Nothing recorded as lost this month."
-            : `${rows.length} requirement(s) lost this month.`,
+            : `${plural(rows.length, "requirement")} lost this month.`,
         rows: rows.map((r) => ({
           label: `${r.tender_ref} · ${r.customer} · ${r.loss_reason ?? "no reason"}`,
           href: `/requirements/${r.id}`,
@@ -74,7 +142,7 @@ export async function askQuestion(input: string): Promise<AskResult> {
         answer:
           rows.length === 0
             ? "Nothing recorded as won this month."
-            : `${rows.length} requirement(s) won this month.`,
+            : `${plural(rows.length, "requirement")} won this month.`,
         rows: rows.map((r) => ({
           label: `${r.tender_ref} · ${r.customer}`,
           href: `/requirements/${r.id}`,
@@ -104,7 +172,7 @@ export async function askQuestion(input: string): Promise<AskResult> {
         answer:
           rows.length === 0
             ? "No outstanding payments."
-            : `Outstanding across ${rows.length} invoice(s): ₹${total.toLocaleString("en-IN")}.`,
+            : `Outstanding across ${plural(rows.length, "invoice")}: ₹${total.toLocaleString("en-IN")}.`,
         rows: rows.map((x) => ({
           label: `Invoice ${x.i.invoice_number} · balance ₹${x.bal.toLocaleString("en-IN")}`,
           href: `/orders/${x.i.order_id}`,
@@ -123,7 +191,7 @@ export async function askQuestion(input: string): Promise<AskResult> {
         answer:
           rows.length === 0
             ? "No documents expiring within 90 days."
-            : `${rows.length} document(s) expiring within 90 days.`,
+            : `${plural(rows.length, "document")} expiring within 90 days.`,
         rows: rows.map((d) => ({ label: `${d.title} · expires ${d.expiry_date}` })),
       };
     }
@@ -139,11 +207,30 @@ export async function askQuestion(input: string): Promise<AskResult> {
         answer:
           rows.length === 0
             ? "No OEM responses are pending."
-            : `${rows.length} OEM request(s) awaiting a response.`,
+            : `${plural(rows.length, "OEM request")} awaiting a response.`,
         rows: rows.map((r) => {
           const oem = Array.isArray(r.oems) ? r.oems[0] : r.oems;
           return { label: oem?.name ?? "OEM" };
         }),
+      };
+    }
+
+    if (/quote|quotation/.test(q)) {
+      const { data } = await db
+        .from("requirements")
+        .select("id,tender_ref,customer,status")
+        .eq("status", "submitted");
+      const rows = data ?? [];
+      return {
+        answered: true,
+        answer:
+          rows.length === 0
+            ? "No quotations are awaiting a response."
+            : `${plural(rows.length, "quotation")} awaiting a response.`,
+        rows: rows.map((r) => ({
+          label: `${r.tender_ref} · ${r.customer}`,
+          href: `/requirements/${r.id}`,
+        })),
       };
     }
 
@@ -152,7 +239,7 @@ export async function askQuestion(input: string): Promise<AskResult> {
       const open = (data ?? []).filter((o) => o.status === "open");
       return {
         answered: true,
-        answer: `There are ${open.length} open order(s) (of ${(data ?? []).length} total).`,
+        answer: `There are ${plural(open.length, "open order")} (of ${(data ?? []).length} total).`,
         rows: open.map((o) => ({ label: `PO ${o.po_number}`, href: `/orders/${o.id}` })),
       };
     }
@@ -164,7 +251,7 @@ export async function askQuestion(input: string): Promise<AskResult> {
       );
       return {
         answered: true,
-        answer: `There are ${open.length} open requirement(s) (of ${(data ?? []).length} total).`,
+        answer: `There are ${plural(open.length, "open requirement")} (of ${(data ?? []).length} total).`,
         rows: open.map((r) => ({
           label: `${r.tender_ref} · ${r.status}`,
           href: `/requirements/${r.id}`,
