@@ -55,8 +55,8 @@ df = read(f"{ASSETS}/2.. Quotation 26-27 .xlsx", "26-27")
 h = find_header(df)
 data["quotations"] = rows_with_header(df, h, "Qtn Ref")
 
-# Orders (HAL master POs)
-df = read(f"{ASSETS}/3. Orderts 26-27.xls", "HAL MASTER POs ")
+# Orders (the third workbook, first sheet)
+df = read(f"{ASSETS}/3. Orderts 26-27.xls", 0)
 h = find_header(df, "SLNO")
 data["orders"] = rows_with_header(df, h, "PO NO.")
 
