@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getSessionUser } from "@/lib/supabase/server";
 
 // Full export of every business table, as a JSON download. Protected by the
 // same login middleware as the rest of the app.
@@ -24,6 +25,13 @@ const TABLES = [
 ];
 
 export async function GET() {
+  const user = await getSessionUser();
+  if (!user) {
+    return new NextResponse("Export is available to signed-in users only.", {
+      status: 403,
+    });
+  }
+
   const db = supabaseAdmin();
   const tables: Record<string, unknown[]> = {};
 

@@ -1,4 +1,5 @@
 import { listAudit } from "@/lib/audit";
+import { getSessionUser } from "@/lib/supabase/server";
 
 function when(iso: string) {
   return new Intl.DateTimeFormat("en-GB", {
@@ -10,6 +11,24 @@ function when(iso: string) {
 }
 
 export default async function AuditPage() {
+  const user = await getSessionUser();
+  if (!user) {
+    return (
+      <div className="mx-auto max-w-[800px] space-y-4">
+        <div>
+          <span className="label">Utility</span>
+          <h1 className="mt-1 text-[28px] font-semibold tracking-tight">
+            Audit trail
+          </h1>
+        </div>
+        <div className="panel p-6 text-sm text-muted">
+          The audit trail is available to signed-in users only. You&apos;re
+          browsing the demo as a guest.
+        </div>
+      </div>
+    );
+  }
+
   const res = await listAudit();
 
   return (

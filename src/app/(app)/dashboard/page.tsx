@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getDashboard, type ActivityItem } from "@/lib/dashboard";
+import { getSessionUser } from "@/lib/supabase/server";
 import { inrCompact, plural } from "@/lib/format";
 import { HEALTH_RANK, type Health } from "@/lib/health";
 import { StatusPill } from "@/components/ui";
@@ -50,6 +51,7 @@ export default async function DashboardPage() {
   }
 
   const d = res.data;
+  const user = await getSessionUser();
   const overdue = d.openOrders.filter((o) => o.health === "overdue");
   const atRisk = d.openOrders.filter((o) => o.health === "at_risk");
   const riskOrders = [...overdue, ...atRisk].sort((a, b) => b.value - a.value);
@@ -71,7 +73,7 @@ export default async function DashboardPage() {
     .slice(0, 3);
 
   const activityGroups: { label: string; items: ActivityItem[] }[] = [];
-  for (const a of d.recentActivity) {
+  for (const a of user ? d.recentActivity : []) {
     const label = dayLabel(a.at);
     const g = activityGroups.find((x) => x.label === label);
     if (g) g.items.push(a);
@@ -309,7 +311,9 @@ export default async function DashboardPage() {
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="panel p-5">
           <div className="label mb-3">Recent activity</div>
-          {activityGroups.length === 0 ? (
+          {!user ? (
+            <p className="text-sm text-muted">Sign in to view activity.</p>
+          ) : activityGroups.length === 0 ? (
             <p className="text-sm text-muted">No recent activity.</p>
           ) : (
             <div className="space-y-4">
