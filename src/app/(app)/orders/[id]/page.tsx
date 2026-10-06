@@ -3,6 +3,7 @@ import { getOrder } from "@/lib/orders";
 import { listFulfilment } from "@/lib/fulfilment";
 import { listPayments, listCommission } from "@/lib/payments";
 import { listOemOptions } from "@/lib/oems";
+import { Lifecycle } from "@/components/ui";
 import {
   updateStepAction,
   addPdiAction,
@@ -83,15 +84,15 @@ export default async function OrderDetailPage({
     deliveredStep.expected_date > o.delivery_deadline;
 
   return (
-    <div className="mx-auto max-w-[1100px] space-y-6">
+    <div className="mx-auto max-w-[1200px] space-y-6">
+      <div className="text-xs text-muted">
+        <Link href="/orders" className="hover:text-ink">Orders</Link>
+        <span className="mx-1.5">/</span>
+        <span className="text-ink">{o.po_number}</span>
+      </div>
+
       <div>
-        <Link
-          href={`/requirements/${o.requirement_id}`}
-          className="text-xs text-muted hover:text-ink"
-        >
-          ← {o.tender_ref}
-        </Link>
-        <div className="mt-1 flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-[26px] font-semibold tracking-tight">
             PO {o.po_number}
           </h1>
@@ -102,7 +103,10 @@ export default async function OrderDetailPage({
           )}
         </div>
         <p className="mt-1 text-sm text-muted">
-          {o.customer} · {o.tender_ref}
+          <Link href={`/requirements/${o.requirement_id}`} className="hover:text-ink">
+            {o.tender_ref}
+          </Link>{" "}
+          · {o.customer}
           {o.oem_name ? ` · OEM ${o.oem_name}` : ""}
           {o.supplier_po ? ` · supplier PO ${o.supplier_po}` : ""}
         </p>
@@ -110,6 +114,17 @@ export default async function OrderDetailPage({
           PO date {fmt(o.po_date)} · delivery deadline{" "}
           <span className="tabular-nums">{fmt(o.delivery_deadline)}</span>
         </p>
+        <div className="mt-3">
+          <Lifecycle
+            stage={
+              (f?.deliveredQty ?? 0) > 0
+                ? 4
+                : (f?.steps.some((s) => s.completed_on) ?? false)
+                  ? 3
+                  : 2
+            }
+          />
+        </div>
       </div>
 
       {sp.error && (

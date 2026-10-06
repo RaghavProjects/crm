@@ -44,7 +44,6 @@ export function StatusPill({
 // --- Lifecycle indicator ---------------------------------------------------
 export const LIFECYCLE = [
   "Requirement",
-  "OEM",
   "Quotation",
   "Order",
   "Fulfilment",
