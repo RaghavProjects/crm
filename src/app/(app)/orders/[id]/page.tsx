@@ -3,7 +3,8 @@ import { getOrder } from "@/lib/orders";
 import { listFulfilment } from "@/lib/fulfilment";
 import { listPayments, listCommission } from "@/lib/payments";
 import { listOemOptions } from "@/lib/oems";
-import { Lifecycle } from "@/components/ui";
+import { evaluateHealth } from "@/lib/health";
+import { Lifecycle, StatusPill } from "@/components/ui";
 import {
   updateStepAction,
   addPdiAction,
@@ -83,6 +84,20 @@ export default async function OrderDetailPage({
     !!deliveredStep?.expected_date &&
     deliveredStep.expected_date > o.delivery_deadline;
 
+  const deliveredStepRow = f?.steps.find((s) => s.step === "delivered");
+  const complete = (f?.deliveredQty ?? 0) > 0;
+  const evaluation = evaluateHealth({
+    delivery: o.delivery_deadline,
+    deliveredOn: deliveredStepRow?.completed_on ?? null,
+    complete,
+  });
+  const nextStep = f?.steps.find((s) => !s.completed_on);
+  const nextAction = complete
+    ? "Request payment"
+    : nextStep
+      ? nextStep.label
+      : "Confirm details";
+
   return (
     <div className="mx-auto max-w-[1200px] space-y-6">
       <div className="text-xs text-muted">
@@ -150,6 +165,8 @@ export default async function OrderDetailPage({
         </div>
       )}
 
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           { label: "Ordered", value: num(o.ordered_qty) },
@@ -514,6 +531,40 @@ export default async function OrderDetailPage({
           )}
         </div>
       </section>
+        </div>
+
+        <aside className="space-y-4">
+          <div className="panel p-4">
+            <div className="label">Next action</div>
+            <div className="mt-1 text-sm font-medium">{nextAction}</div>
+            {nextStep?.expected_date && (
+              <div className="mt-0.5 text-xs text-muted">
+                Expected {fmt(nextStep.expected_date)}
+              </div>
+            )}
+          </div>
+          <div className="panel p-4">
+            <div className="label">Health</div>
+            <div className="mt-1">
+              <StatusPill kind={evaluation.code} />
+            </div>
+            <div className="mt-0.5 text-xs text-muted">{evaluation.reason}</div>
+          </div>
+          <div className="panel p-4">
+            <div className="label">Important dates</div>
+            <dl className="mt-1 space-y-1 text-xs">
+              <div className="flex justify-between">
+                <dt className="text-muted">PO date</dt>
+                <dd className="font-mono">{fmt(o.po_date)}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted">Delivery deadline</dt>
+                <dd className="font-mono">{fmt(o.delivery_deadline)}</dd>
+              </div>
+            </dl>
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }
