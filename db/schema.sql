@@ -168,6 +168,61 @@ create table if not exists audit_events (
 );
 revoke update, delete on audit_events from anon, authenticated;
 
+-- Quotations (Step 6) --------------------------------------------------------
+-- Every quotation comes from a requirement. Versioned; approved by a person.
+create table if not exists quotes (
+  id                uuid primary key default gen_random_uuid(),
+  requirement_id    uuid not null references requirements (id) on delete cascade,
+  version           int not null default 1,
+  status            text not null default 'draft',   -- draft | approved
+  target_margin_pct numeric,
+  notes             text,
+  approved_by       text,
+  approved_at       timestamptz,
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now(),
+  unique (requirement_id, version)
+);
+
+drop trigger if exists quotes_set_updated_at on quotes;
+create trigger quotes_set_updated_at
+  before update on quotes
+  for each row execute function set_updated_at();
+
+create table if not exists quote_lines (
+  id                uuid primary key default gen_random_uuid(),
+  quote_id          uuid not null references quotes (id) on delete cascade,
+  description       text not null,
+  quantity          numeric,
+  oem_price         numeric not null check (oem_price >= 0),
+  lead_time_days    int,
+  margin_pct        numeric,
+  recommended_price numeric,
+  sort_order        int not null default 0,
+  created_at        timestamptz not null default now()
+);
+
+create index if not exists quote_lines_quote_id_idx on quote_lines (quote_id);
+create index if not exists quotes_requirement_id_idx on quotes (requirement_id);
+
+-- Comparable past bids: quote lines joined to the requirement's outcome.
+create or replace view past_bids as
+select
+  ql.id,
+  ql.description,
+  ql.oem_price,
+  ql.recommended_price,
+  ql.lead_time_days,
+  q.requirement_id,
+  r.tender_ref,
+  r.customer,
+  r.status as requirement_status
+from quote_lines ql
+join quotes q on q.id = ql.quote_id
+join requirements r on r.id = q.requirement_id;
+
+grant select on past_bids to authenticated;
+
 -- Row Level Security: authenticated users may work; anon gets nothing.
 -- The app's server side uses the secret key, which bypasses RLS; this protects
 -- the publishable key if it is ever used from a browser.
@@ -176,7 +231,8 @@ declare t text;
 begin
   for t in select unnest(array[
     'requirements','requirement_lines','oems','requirement_oems',
-    'line_coverage','profiles','audit_events','requirement_status'
+    'line_coverage','profiles','audit_events','requirement_status',
+    'quotes','quote_lines'
   ])
   loop
     execute format('alter table %I enable row level security', t);

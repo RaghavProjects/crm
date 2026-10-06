@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { shortlistOem, logResponse } from "@/lib/sourcing";
 import { addCoverage, deleteCoverage } from "@/lib/coverage";
+import { createQuote, approveQuote, type NewQuoteLine } from "@/lib/quotes";
 import { getSessionUser } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit";
 
@@ -88,6 +89,51 @@ export async function deleteCoverageAction(formData: FormData) {
     entity: "coverage",
     entity_id: coverageId,
     action: "removed",
+  });
+  redirect(`/requirements/${requirementId}?ok=1`);
+}
+
+export async function createQuoteAction(formData: FormData) {
+  const requirementId = String(formData.get("requirement_id") ?? "");
+  let lines: NewQuoteLine[] = [];
+  try {
+    lines = JSON.parse(String(formData.get("quote_lines") ?? "[]"));
+  } catch {
+    lines = [];
+  }
+  const target = String(formData.get("target_margin_pct") ?? "");
+  const res = await createQuote(requirementId, {
+    target_margin_pct: target,
+    notes: String(formData.get("notes") ?? ""),
+    lines,
+  });
+  if (!res.ok) {
+    redirect(`/requirements/${requirementId}?error=${encodeURIComponent(res.error)}`);
+  }
+  const user = await getSessionUser();
+  await recordAudit({
+    actor: user?.email ?? null,
+    entity: "quote",
+    entity_id: requirementId,
+    action: "created",
+    details: { target_margin_pct: target || null },
+  });
+  redirect(`/requirements/${requirementId}?ok=1`);
+}
+
+export async function approveQuoteAction(formData: FormData) {
+  const requirementId = String(formData.get("requirement_id") ?? "");
+  const quoteId = String(formData.get("quote_id") ?? "");
+  const user = await getSessionUser();
+  const res = await approveQuote(quoteId, user?.email ?? null);
+  if (!res.ok) {
+    redirect(`/requirements/${requirementId}?error=${encodeURIComponent(res.error)}`);
+  }
+  await recordAudit({
+    actor: user?.email ?? null,
+    entity: "quote",
+    entity_id: quoteId,
+    action: "approved",
   });
   redirect(`/requirements/${requirementId}?ok=1`);
 }

@@ -2,12 +2,15 @@ import Link from "next/link";
 import { getRequirement } from "@/lib/requirements";
 import { listSourcing } from "@/lib/sourcing";
 import { listCoverage } from "@/lib/coverage";
+import { listQuotes, getPastBids } from "@/lib/quotes";
 import { listOemOptions } from "@/lib/oems";
+import { QuoteForm } from "./QuoteForm";
 import {
   shortlistOemAction,
   logResponseAction,
   addCoverageAction,
   deleteCoverageAction,
+  approveQuoteAction,
 } from "./actions";
 
 const input =
@@ -85,6 +88,9 @@ export default async function RequirementDetailPage({
   const sourcing = await listSourcing(id);
   const coverage = await listCoverage(id);
   const oemOptions = await listOemOptions();
+  const quotes = await listQuotes(id);
+  const keyword = r.lines[0]?.part_description?.split(/\s+/)[0] ?? null;
+  const pastBids = await getPastBids(id, keyword);
 
   // Per-line firm / availability totals, from the coverage records.
   const byLine = new Map<string, { firm: number; avail: number }>();
@@ -378,6 +384,147 @@ export default async function RequirementDetailPage({
             })}
           </div>
         )}
+      </section>
+
+      <section className="rounded-card border border-border bg-surface">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <span className="text-sm font-semibold">Quotations</span>
+          <span className="text-xs text-muted">
+            Versioned · approved by a person
+          </span>
+        </div>
+
+        {!quotes.ok && (
+          <p className="px-4 py-4 text-sm text-[#b91c1c]">
+            Could not load quotes: {quotes.error}
+          </p>
+        )}
+
+        {quotes.ok && quotes.rows.length > 0 && (
+          <div className="divide-y divide-border">
+            {quotes.rows.map((q) => {
+              const total = q.lines.reduce(
+                (s, l) => s + (l.recommended_price ?? 0) * (l.quantity ?? 0),
+                0,
+              );
+              return (
+                <div key={q.id} className="p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium">
+                        Version {q.version}
+                      </span>
+                      <Badge
+                        value={q.status}
+                        map={{
+                          draft: "bg-border/60 text-muted",
+                          approved: "bg-success/15 text-[#15803d]",
+                        }}
+                      />
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-muted">
+                      <span>
+                        Recommended total{" "}
+                        <span className="font-medium tabular-nums text-ink">
+                          ₹{num(total)}
+                        </span>
+                      </span>
+                      {q.status !== "approved" && (
+                        <form action={approveQuoteAction}>
+                          <input
+                            type="hidden"
+                            name="requirement_id"
+                            value={r.id}
+                          />
+                          <input type="hidden" name="quote_id" value={q.id} />
+                          <button
+                            type="submit"
+                            className="rounded-control border border-border px-3 py-1.5 text-xs font-medium hover:bg-page"
+                          >
+                            Approve
+                          </button>
+                        </form>
+                      )}
+                    </div>
+                  </div>
+                  <ul className="mt-2 space-y-1 text-xs text-muted">
+                    {q.lines.map((l) => (
+                      <li key={l.id}>
+                        {l.description} · qty {l.quantity ?? "—"} · OEM ₹
+                        {num(l.oem_price)} · margin {l.margin_pct ?? "—"}% ·
+                        recommended ₹{num(l.recommended_price ?? 0)}
+                      </li>
+                    ))}
+                  </ul>
+                  {q.approved_by && (
+                    <p className="mt-1 text-xs text-[#15803d]">
+                      Approved by {q.approved_by}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {r.lines.length === 0 ? (
+          <p className="px-4 py-4 text-sm text-muted">
+            Add line items before quoting.
+          </p>
+        ) : (
+          <div className="border-t border-border p-4">
+            <h3 className="mb-3 text-sm font-semibold">New quotation</h3>
+            <QuoteForm
+              requirementId={r.id}
+              lines={r.lines.map((l) => ({
+                description: l.part_description,
+                quantity: l.quantity == null ? "" : String(l.quantity),
+              }))}
+            />
+          </div>
+        )}
+
+        <div className="border-t border-border p-4">
+          <h3 className="mb-2 text-sm font-semibold">Comparable past bids</h3>
+          {pastBids.length === 0 ? (
+            <p className="text-sm text-muted">
+              No comparable past bids yet — outcomes are captured from now on.
+            </p>
+          ) : (
+            <div className="overflow-hidden rounded-card border border-border">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-page text-xs text-muted">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">Description</th>
+                    <th className="px-3 py-2 font-medium">Tender</th>
+                    <th className="px-3 py-2 text-right font-medium">OEM price</th>
+                    <th className="px-3 py-2 text-right font-medium">
+                      Recommended
+                    </th>
+                    <th className="px-3 py-2 font-medium">Outcome</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pastBids.map((b) => (
+                    <tr key={b.id} className="border-t border-border">
+                      <td className="px-3 py-2">{b.description}</td>
+                      <td className="px-3 py-2 text-muted">{b.tender_ref}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        ₹{num(b.oem_price)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        ₹{num(b.recommended_price ?? 0)}
+                      </td>
+                      <td className="px-3 py-2">
+                        <Badge value={b.requirement_status} map={reqStatusStyle} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </section>
 
       <section className="rounded-card border border-border bg-surface">
