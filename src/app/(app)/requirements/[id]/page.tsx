@@ -221,7 +221,7 @@ export default async function RequirementDetailPage({
         {r.lines.length === 0 ? (
           <p className="px-4 py-6 text-sm text-muted">No line items.</p>
         ) : (
-          <div className="overflow-hidden">
+          <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-page text-xs text-muted">
                 <tr>

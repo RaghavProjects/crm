@@ -17,13 +17,21 @@ export default async function DashboardPage({
 
   return (
     <div className="mx-auto max-w-[1100px] space-y-6">
-      <div>
-        <h1 className="text-[26px] font-semibold tracking-tight md:text-[28px]">
-          Dashboard
-        </h1>
-        <p className="mt-1 text-sm text-muted">
-          The morning view — answered from stored data, never invented.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-[26px] font-semibold tracking-tight md:text-[28px]">
+            Dashboard
+          </h1>
+          <p className="mt-1 text-sm text-muted">
+            The morning view — answered from stored data, never invented.
+          </p>
+        </div>
+        <a
+          href="/export"
+          className="rounded-control border border-border px-3 py-2 text-sm font-medium hover:bg-page"
+        >
+          Download full export
+        </a>
       </div>
 
       <section className="rounded-card border border-border bg-surface p-4">
