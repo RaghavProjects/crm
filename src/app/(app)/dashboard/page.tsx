@@ -242,6 +242,143 @@ export default async function DashboardPage({
               </ul>
             )}
           </section>
+
+          <section className="rounded-card border border-border bg-surface">
+            <div className="border-b border-border px-4 py-3 text-sm font-semibold">
+              Performance
+            </div>
+            <div className="flex flex-wrap gap-x-10 gap-y-4 p-4">
+              {[
+                {
+                  label: "Tender conversion",
+                  value:
+                    res.data.kpis.conversionPct == null
+                      ? "—"
+                      : `${res.data.kpis.conversionPct}%`,
+                },
+                {
+                  label: "Delivery adherence",
+                  value:
+                    res.data.kpis.deliveryAdherencePct == null
+                      ? "—"
+                      : `${res.data.kpis.deliveryAdherencePct}%`,
+                },
+                {
+                  label: "Avg quote turnaround",
+                  value:
+                    res.data.kpis.avgTurnaroundDays == null
+                      ? "—"
+                      : `${res.data.kpis.avgTurnaroundDays} d`,
+                },
+                { label: "Repeat clients", value: String(res.data.kpis.repeatClients) },
+                {
+                  label: "Commission receivable",
+                  value: inr(res.data.commissionReceivable),
+                },
+              ].map((k) => (
+                <div key={k.label}>
+                  <div className="label">{k.label}</div>
+                  <div className="mt-1 text-2xl font-semibold text-ink">{k.value}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-card border border-border bg-surface">
+            <div className="border-b border-border px-4 py-3 text-sm font-semibold">
+              Payments
+            </div>
+            <div className="flex flex-wrap gap-x-10 gap-y-4 p-4">
+              <div>
+                <div className="label">Pending</div>
+                <div className="mt-1 text-2xl font-semibold text-ink">
+                  {inr(res.data.payments.pendingAmount)}
+                </div>
+              </div>
+              <div>
+                <div className="label">Overdue &gt; 30 days</div>
+                <div
+                  className={`mt-1 text-2xl font-semibold ${
+                    res.data.payments.overdueAmount > 0 ? "text-danger" : "text-ink"
+                  }`}
+                >
+                  {inr(res.data.payments.overdueAmount)}
+                </div>
+                <div className="text-xs text-muted">
+                  {res.data.payments.overdueCount} invoice(s)
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <section className="rounded-card border border-border bg-surface">
+              <div className="border-b border-border px-4 py-3 text-sm font-semibold">
+                Revenue by OEM
+              </div>
+              {res.data.revenueByOem.length === 0 ? (
+                <p className="px-4 py-4 text-sm text-muted">None.</p>
+              ) : (
+                <table className="w-full text-left text-sm">
+                  <tbody>
+                    {res.data.revenueByOem.map((r) => (
+                      <tr key={r.name} className="border-t border-border">
+                        <td className="px-4 py-2.5">{r.name}</td>
+                        <td className="px-4 py-2.5 text-right text-muted">
+                          {r.orders} order(s)
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono text-[13px]">
+                          {inr(r.value)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+
+            <section className="rounded-card border border-border bg-surface">
+              <div className="border-b border-border px-4 py-3 text-sm font-semibold">
+                Revenue by client
+              </div>
+              {res.data.revenueByClient.length === 0 ? (
+                <p className="px-4 py-4 text-sm text-muted">None.</p>
+              ) : (
+                <table className="w-full text-left text-sm">
+                  <tbody>
+                    {res.data.revenueByClient.map((r) => (
+                      <tr key={r.name} className="border-t border-border">
+                        <td className="px-4 py-2.5">{r.name}</td>
+                        <td className="px-4 py-2.5 text-right text-muted">
+                          {r.orders} order(s)
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono text-[13px]">
+                          {inr(r.value)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+          </div>
+
+          <section className="rounded-card border border-border bg-surface">
+            <div className="border-b border-border px-4 py-3 text-sm font-semibold">
+              Monthly sales trend (6 months)
+            </div>
+            <ul className="divide-y divide-border">
+              {res.data.monthlyTrend.map((m) => (
+                <li
+                  key={m.month}
+                  className="flex items-center justify-between px-4 py-2.5 text-sm"
+                >
+                  <span className="font-mono text-[13px] text-muted">{m.month}</span>
+                  <span className="font-mono text-[13px]">{inr(m.value)}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
         </>
       )}
     </div>
