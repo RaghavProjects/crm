@@ -221,7 +221,7 @@ for (const p of posRows) {
     po_date: d(p["PO  DATE"]),
     delivery_deadline: d(p["DELY DUE ON"]),
     oem_id: p.OEM && oemId.get(p.OEM) ? oemId.get(p.OEM) : null,
-    status: "open",
+    status: "completed", // historical POs — closed, excluded from current risk
     notes: p.Remarks || null,
   });
   orderCount++;

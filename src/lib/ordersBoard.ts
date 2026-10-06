@@ -83,12 +83,15 @@ export async function listOrdersBoard(): Promise<OrdersBoardResult> {
       let lastLabel = "Not started";
       for (const [code, info] of stepIndex) if (done.has(code)) lastLabel = info.label;
       const delivered = done.has("delivered") || done.has("accepted");
-      const complete = done.has("accepted") || delivered;
-      const evaluation = evaluateHealth({
-        delivery: o.delivery_deadline,
-        deliveredOn: deliveredOnByOrder.get(o.id) ?? null,
-        complete,
-      });
+      const closed = o.status !== "open"; // completed / cancelled → excluded from current risk
+      const complete = closed || delivered;
+      const evaluation = closed
+        ? { code: "on_track" as Health, label: "On track", reason: "Order closed" }
+        : evaluateHealth({
+            delivery: o.delivery_deadline,
+            deliveredOn: deliveredOnByOrder.get(o.id) ?? null,
+            complete,
+          });
       const next = STEPS.find((s) => !done.has(s.code));
 
       return {
